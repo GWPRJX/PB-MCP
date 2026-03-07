@@ -98,14 +98,48 @@
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| INFRA-01 to INFRA-07 | Phase 1 | Pending |
-| TENANT-01 to TENANT-07 | Phase 2 | Pending |
-| INV-01 to INV-07 | Phase 3 | Pending |
-| ORD-01 to ORD-06 | Phase 3 | Pending |
-| CRM-01 to CRM-05 | Phase 3 | Pending |
-| KB-01 to KB-08 | Phase 4 | Pending |
+| Requirement | Phase | Phase Name | Status |
+|-------------|-------|------------|--------|
+| INFRA-01 | Phase 1 | Database Foundation | Pending |
+| INFRA-02 | Phase 1 | Database Foundation | Pending |
+| INFRA-03 | Phase 1 | Database Foundation | Pending |
+| INFRA-04 | Phase 1 | Database Foundation | Pending |
+| INFRA-05 | Phase 1 | Database Foundation | Pending |
+| INFRA-06 | Phase 1 | Database Foundation | Pending |
+| INFRA-07 | Phase 1 | Database Foundation | Pending |
+| TENANT-01 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| TENANT-02 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| TENANT-03 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| TENANT-04 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| TENANT-05 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| TENANT-06 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| TENANT-07 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| INV-01 | Phase 3 | ERP Domain Tools | Pending |
+| INV-02 | Phase 3 | ERP Domain Tools | Pending |
+| INV-03 | Phase 3 | ERP Domain Tools | Pending |
+| INV-04 | Phase 3 | ERP Domain Tools | Pending |
+| INV-05 | Phase 3 | ERP Domain Tools | Pending |
+| INV-06 | Phase 3 | ERP Domain Tools | Pending |
+| INV-07 | Phase 3 | ERP Domain Tools | Pending |
+| ORD-01 | Phase 3 | ERP Domain Tools | Pending |
+| ORD-02 | Phase 3 | ERP Domain Tools | Pending |
+| ORD-03 | Phase 3 | ERP Domain Tools | Pending |
+| ORD-04 | Phase 3 | ERP Domain Tools | Pending |
+| ORD-05 | Phase 3 | ERP Domain Tools | Pending |
+| ORD-06 | Phase 3 | ERP Domain Tools | Pending |
+| CRM-01 | Phase 3 | ERP Domain Tools | Pending |
+| CRM-02 | Phase 3 | ERP Domain Tools | Pending |
+| CRM-03 | Phase 3 | ERP Domain Tools | Pending |
+| CRM-04 | Phase 3 | ERP Domain Tools | Pending |
+| CRM-05 | Phase 3 | ERP Domain Tools | Pending |
+| KB-01 | Phase 4 | YouTrack KB Sync | Pending |
+| KB-02 | Phase 4 | YouTrack KB Sync | Pending |
+| KB-03 | Phase 4 | YouTrack KB Sync | Pending |
+| KB-04 | Phase 4 | YouTrack KB Sync | Pending |
+| KB-05 | Phase 4 | YouTrack KB Sync | Pending |
+| KB-06 | Phase 4 | YouTrack KB Sync | Pending |
+| KB-07 | Phase 4 | YouTrack KB Sync | Pending |
+| KB-08 | Phase 4 | YouTrack KB Sync | Pending |
 
 **Coverage:**
 - v1 requirements: 40 total
@@ -114,4 +148,4 @@
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after initial definition*
+*Last updated: 2026-03-07 after roadmap creation*
