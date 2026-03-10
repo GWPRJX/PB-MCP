@@ -29,7 +29,13 @@
   3. CI pipeline runs a cross-tenant isolation test: seeding data for Tenant A and querying as Tenant B returns empty results
   4. CI pipeline fails the build if any tenant-bearing table is missing an RLS policy
   5. All application logs write to stderr only; no stdout output is produced by the server process
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Project scaffold + all test stubs (Wave 1)
+- [ ] 01-02-PLAN.md — Foundation migrations: roles, tenants, api_keys (Wave 2)
+- [ ] 01-03-PLAN.md — ERP + KB migrations, integration tests, startup check (Wave 3)
+- [ ] 01-04-PLAN.md — GitHub Actions CI workflow + human verification checkpoint (Wave 4)
 
 ### Phase 2: Tenant Management + MCP Shell
 **Goal**: A developer can provision a new tenant, receive an API key, and connect an MCP client that authenticates correctly and receives an empty tool list
@@ -73,7 +79,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Database Foundation | 0/? | Not started | - |
+| 1. Database Foundation | 0/4 | Planned | - |
 | 2. Tenant Management + MCP Shell | 0/? | Not started | - |
 | 3. ERP Domain Tools | 0/? | Not started | - |
 | 4. YouTrack KB Sync | 0/? | Not started | - |
@@ -141,3 +147,4 @@
 
 ---
 *Roadmap created: 2026-03-07*
+*Updated: 2026-03-10 — Phase 1 planned (4 plans, 4 waves)*
