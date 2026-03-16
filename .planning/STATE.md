@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 1 — Database Foundation
-current_plan: 01-04 (ready to execute)
+current_plan: 01-04 (checkpoint: awaiting human verification)
 status: In progress
-stopped_at: Completed 01-03-PLAN.md — ERP migrations, kb_articles, RLS integration tests, check-pending.ts
-last_updated: "2026-03-16T08:30:46Z"
+stopped_at: Plan 01-04 Task 1 complete — .github/workflows/ci.yml created (commit 2d16190); stopped at checkpoint:human-verify
+last_updated: "2026-03-16T08:36:00Z"
 progress:
   total_phases: 4
   completed_phases: 0
@@ -33,12 +33,12 @@ progress:
 ## Current Position
 
 **Current Phase:** 1 — Database Foundation
-**Current Plan:** 01-04 (ready to execute)
-**Status:** In progress — plan 01-03 complete
+**Current Plan:** 01-04 (checkpoint: awaiting human verification)
+**Status:** In progress — plan 01-04 Task 1 complete, stopped at checkpoint:human-verify
 
 **Progress:**
 ```
-Phase 1 [██████    ] 75%  Database Foundation (3/4 plans done)
+Phase 1 [███████   ] 85%  Database Foundation (3.5/4 plans done — CI created, verification pending)
 Phase 2 [          ] 0%   Tenant Management + MCP Shell
 Phase 3 [          ] 0%   ERP Domain Tools
 Phase 4 [          ] 0%   YouTrack KB Sync
@@ -52,7 +52,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | In progress (2/4 plans) |
+| 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | In progress (3.5/4 plans — CI checkpoint pending) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | Not started |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Not started |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
@@ -98,6 +98,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **kb_articles:** Global cache, no tenant_id, no RLS — locked decision from Phase 1 context; all tenants share YouTrack article data
 - **tsconfig.test.json:** Separate tsconfig extending main to include tests/** with rootDir=. for tsc --noEmit; main tsconfig rootDir=src excludes test files
 - **check-pending.ts:** Startup migration alert using MIGRATION_ALERT=true gate; compares .up.sql file count vs schema_migrations version; all output via process.stderr.write
+- **CI (INFRA-07):** GitHub Actions with postgres:17-alpine service, golang-migrate v4.19.1 pinned, assert-rls.sh as build gate; DATABASE_MIGRATION_URL (superuser) for migrations, DATABASE_URL (app_login) for vitest
 
 ### Critical Pitfalls (must not skip)
 
@@ -141,10 +142,10 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T08:30:46Z
-**Stopped at:** Completed 01-03-PLAN.md — ERP migrations (7 tables with RLS), kb_articles (global cache), RLS integration tests (12 real it() tests), check-pending.ts startup alert
-**Next action:** Run plan 01-04 (GitHub Actions CI workflow + human verification checkpoint)
+**Last session:** 2026-03-16T08:36:00Z
+**Stopped at:** Plan 01-04 Task 1 complete — .github/workflows/ci.yml created; stopped at checkpoint:human-verify (Task 2)
+**Next action:** After human approves checkpoint (all 6 verification steps pass), resume plan 01-04 continuation to finalize Phase 1 complete
 
 ---
 *State initialized: 2026-03-07*
-*Last updated: 2026-03-16 after plan 01-02 execution*
+*Last updated: 2026-03-16 after plan 01-04 Task 1 execution (checkpoint pending)*
