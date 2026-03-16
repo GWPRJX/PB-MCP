@@ -1,4 +1,6 @@
 import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import * as schema from './schema.js';
 
 // Application database client.
 // Uses DATABASE_URL which connects as app_login (non-superuser, RLS enforced).
@@ -37,3 +39,7 @@ export async function withTenantContext<T>(
   });
   return result as T;
 }
+
+// Type-safe query builder wrapping the existing postgres.js pool.
+// Use db for SELECT/INSERT/UPDATE queries; use sql directly for raw SQL or set_config calls.
+export const db = drizzle(sql, { schema });
