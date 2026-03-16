@@ -19,19 +19,20 @@ const PORT = parseInt(process.env.PORT ?? '3000', 10);
 async function main(): Promise<void> {
   const server = await buildServer();
 
-  // Create MCP server and transport.
-  // Per MCP Streamable HTTP spec: single /mcp endpoint handles POST (client→server),
-  // GET (server-sent events for server→client push), and DELETE (session termination).
-  // stateless: true — no session state maintained between requests in v1.
-  const mcpServer = createMcpServer();
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless mode — no session ID
-  });
-  await mcpServer.connect(transport);
-
+  // MCP Streamable HTTP — stateless mode requires a fresh transport + McpServer per request.
+  // The MCP SDK's WebStandardStreamableHTTPServerTransport throws if reused across requests
+  // when sessionIdGenerator is undefined (stateless mode). Creating a new McpServer per
+  // request is cheap since no tools are registered yet (Phase 3 adds tools).
+  //
   // POST /mcp — main JSON-RPC endpoint (initialize, tools/list, tools/call, etc.)
   server.post('/mcp', async (request, reply) => {
     await extractAndValidateApiKey(request, reply, async () => {
+      const mcpServer = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined, // stateless mode — no session ID
+        enableJsonResponse: true,      // return direct JSON responses (not SSE) for POST requests
+      });
+      await mcpServer.connect(transport);
       await transport.handleRequest(request.raw, reply.raw, request.body);
       reply.hijack();
     });
@@ -40,6 +41,12 @@ async function main(): Promise<void> {
   // GET /mcp — SSE endpoint for server-initiated messages (server push)
   server.get('/mcp', async (request, reply) => {
     await extractAndValidateApiKey(request, reply, async () => {
+      const mcpServer = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: true,
+      });
+      await mcpServer.connect(transport);
       await transport.handleRequest(request.raw, reply.raw);
       reply.hijack();
     });
@@ -48,6 +55,12 @@ async function main(): Promise<void> {
   // DELETE /mcp — session termination
   server.delete('/mcp', async (request, reply) => {
     await extractAndValidateApiKey(request, reply, async () => {
+      const mcpServer = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: true,
+      });
+      await mcpServer.connect(transport);
       await transport.handleRequest(request.raw, reply.raw);
       reply.hijack();
     });
