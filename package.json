@@ -12,11 +12,19 @@
     "migrate:create": "migrate create -ext sql -dir db/migrations -seq",
     "test": "vitest run",
     "test:db": "vitest run --reporter=verbose tests/db/",
+    "test:admin": "vitest run --reporter=verbose tests/admin/",
+    "test:mcp": "vitest run --reporter=verbose tests/mcp/",
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
     "dotenv": "^16.0.0",
-    "postgres": "^3.4.0"
+    "postgres": "^3.4.0",
+    "fastify": "^5.0.0",
+    "@fastify/swagger": "^9.0.0",
+    "@scalar/fastify-api-reference": "latest",
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "zod": "^3.25.0",
+    "drizzle-orm": "^0.45.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
