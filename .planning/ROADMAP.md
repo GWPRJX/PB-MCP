@@ -47,7 +47,7 @@ Plans:
   3. Admin can issue additional API keys for a tenant and revoke any key; revoked keys are immediately rejected
   4. An MCP client presenting a valid API key in the request header receives a successful `tools/list` response (empty list) from the MCP server; an invalid or missing key is rejected with an auth error
   5. Developer onboarding end-to-end — clone repo, run migrations, create tenant, connect Claude Desktop or MCP Inspector — completes in under 10 minutes
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [ ] 02-01-PLAN.md — Dependencies install + all test stubs (Wave 1)
@@ -86,7 +86,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 4/4 | Complete | 2026-03-16 |
-| 2. Tenant Management + MCP Shell | 2/4 | In Progress|  |
+| 2. Tenant Management + MCP Shell | 3/4 | In Progress|  |
 | 3. ERP Domain Tools | 0/? | Not started | - |
 | 4. YouTrack KB Sync | 0/? | Not started | - |
 

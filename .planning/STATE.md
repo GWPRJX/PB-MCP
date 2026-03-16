@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 2
-current_plan: 3 (02-03 next)
+current_plan: 4 (02-04 next)
 status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-16T10:09:53.101Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-03-16T10:20:24Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
-  percent: 75
+  completed_plans: 7
+  percent: 88
 ---
 
 # STATE: PB MCP
@@ -33,19 +33,19 @@ progress:
 ## Current Position
 
 **Current Phase:** 2
-**Current Plan:** 3 (02-03 next)
+**Current Plan:** 4 (02-04 next)
 **Status:** In progress
 
 **Progress:**
 ```
-[████████░░] 75%
+[█████████░] 88%
 Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified)
-Phase 2 [████░░░░░░] 50%  Tenant Management + MCP Shell (2/4 plans done)
+Phase 2 [██████░░░░] 75%  Tenant Management + MCP Shell (3/4 plans done)
 Phase 3 [          ] 0%   ERP Domain Tools
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 1/4 phases complete (6/8 plans in progress phases)
+**Overall:** 1/4 phases complete (7/8 plans in progress phases)
 
 ---
 
@@ -54,7 +54,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
-| 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | In progress (2/4 plans — 02-01, 02-02 complete) |
+| 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | In progress (3/4 plans — 02-01, 02-02, 02-03 complete) |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Not started |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
 
@@ -62,10 +62,10 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 ## Performance Metrics
 
-**Plans executed:** 6
-**Plans passed verification:** 6
+**Plans executed:** 7
+**Plans passed verification:** 7
 **Plans failed verification:** 0
-**Requirements completed:** 21/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-05, TENANT-07 complete via 02-02)
+**Requirements completed:** 26/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-05, TENANT-07 complete; TENANT-01 through TENANT-05 verified end-to-end via 02-03)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
@@ -75,6 +75,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | 01-04 | 5min | 2 | 1 | 2026-03-16 |
 | 02-01 | 3min | 2 | 6 | 2026-03-16 |
 | 02-02 | 10min | 2 | 4 | 2026-03-16 |
+| 02-03 | 7min | 2 | 5 | 2026-03-16 |
 
 ## Accumulated Context
 
@@ -105,6 +106,10 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **Auth lookup RLS bypass:** `lookupApiKeyByHash` uses a short-lived `postgres()` connection via `DATABASE_MIGRATION_URL` (superuser, no RLS) to resolve `key_hash` to `tenant_id` — necessary because `api_keys` RLS hides all rows when `app.current_tenant_id` is unset; this pool is read-only and closed after each call
 - **API key format:** `pb_` + `randomBytes(32).toString('hex')` = 67-char key; SHA-256 hash stored; raw key returned once at creation
 - **TenantService pattern:** All admin DB operations in `src/admin/tenant-service.ts`; route handlers import service functions — no raw SQL in routes
+- **FORCE RLS on api_keys affects INSERTs:** `createTenant` and `createApiKey` must call `set_config('app.current_tenant_id', id, true)` in the same transaction before inserting into api_keys — even admin operations are blocked without context
+- **listTenants uses superuser connection:** Cross-tenant aggregate JOIN on api_keys requires DATABASE_MIGRATION_URL (BYPASSRLS) — app_login sees zero rows for the JOIN without per-tenant context
+- **Test cleanup requires superuser:** `DELETE FROM tenants` uses DATABASE_MIGRATION_URL — app_login has SELECT/INSERT/UPDATE only (no DELETE), intentional security boundary
+- **buildServer() factory pattern:** Fastify instance exported from src/server.ts; used by tests via inject() and by src/index.ts for actual listen(); Wave 4 registers MCP plugin on same instance
 
 ### Critical Pitfalls (must not skip)
 
@@ -148,10 +153,10 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T10:09:53.099Z
-**Stopped at:** Completed 02-02-PLAN.md
-**Next action:** Execute plan 02-03 — Admin REST API (Wave 3)
+**Last session:** 2026-03-16T10:20:24Z
+**Stopped at:** Completed 02-03-PLAN.md
+**Next action:** Execute plan 02-04 — MCP Server + Auth (Wave 4)
 
 ---
 *State initialized: 2026-03-07*
-*Last updated: 2026-03-16 after plan 02-02 complete — Tenant data layer built*
+*Last updated: 2026-03-16 after plan 02-03 complete — Admin REST API + tests (24 passing)*
