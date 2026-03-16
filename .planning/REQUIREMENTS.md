@@ -8,7 +8,7 @@
 ### Infrastructure
 
 - [x] **INFRA-01**: System runs as a single Node.js (TypeScript) process with Fastify 5 *(scaffold: 01-01; full implementation: Phase 2)*
-- [ ] **INFRA-02**: MCP server uses Streamable HTTP transport (not stdio)
+- [x] **INFRA-02**: MCP server uses Streamable HTTP transport (not stdio)
 - [x] **INFRA-03**: PostgreSQL with Row-Level Security (RLS) isolates all tenant data in a shared schema *(tenant_isolation policy on api_keys: 01-02; full coverage: 01-03)*
 - [x] **INFRA-04**: Every tenant-bearing table has both `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` *(api_keys migration: 01-02; all ERP tables: 01-03)*
 - [x] **INFRA-05**: Application uses a dedicated non-superuser PostgreSQL role (no BYPASSRLS) *(app_user NOLOGIN + app_login LOGIN, no BYPASSRLS: 01-02)*
@@ -17,13 +17,13 @@
 
 ### Tenant Management
 
-- [ ] **TENANT-01**: Admin can create a new tenant with name, slug, and plan via REST API
-- [ ] **TENANT-02**: Admin can list all tenants with status and key count
-- [ ] **TENANT-03**: Admin can view a single tenant's details
-- [ ] **TENANT-04**: Admin can issue API keys for a tenant (hashed at rest)
-- [ ] **TENANT-05**: Admin can revoke a tenant API key
-- [ ] **TENANT-06**: MCP client authenticates by presenting an API key in request header
-- [ ] **TENANT-07**: API key resolves to a `tenant_id` which sets PostgreSQL session variable for RLS
+- [x] **TENANT-01**: Admin can create a new tenant with name, slug, and plan via REST API
+- [x] **TENANT-02**: Admin can list all tenants with status and key count
+- [x] **TENANT-03**: Admin can view a single tenant's details
+- [x] **TENANT-04**: Admin can issue API keys for a tenant (hashed at rest)
+- [x] **TENANT-05**: Admin can revoke a tenant API key
+- [x] **TENANT-06**: MCP client authenticates by presenting an API key in request header
+- [x] **TENANT-07**: API key resolves to a `tenant_id` which sets PostgreSQL session variable for RLS
 
 ### MCP — Inventory & Products (read-only)
 
