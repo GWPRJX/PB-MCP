@@ -10,7 +10,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Database Foundation** - PostgreSQL schema with RLS enforcing tenant isolation; CI-verified cross-tenant data separation before any application layer is built
+- [x] **Phase 1: Database Foundation** - PostgreSQL schema with RLS enforcing tenant isolation; CI-verified cross-tenant data separation before any application layer is built
 - [ ] **Phase 2: Tenant Management + MCP Shell** - Admin REST API for tenant provisioning, API key management, and the MCP server transport layer with per-request tenant auth middleware
 - [ ] **Phase 3: ERP Domain Tools** - All read-only MCP tools for Inventory, Orders/Billing, and CRM giving AI clients full query access to tenant ERP data
 - [ ] **Phase 4: YouTrack KB Sync** - YouTrack article cache, scheduled sync, and KB query tools so AI clients can search live API documentation
@@ -35,7 +35,7 @@ Plans:
 - [x] 01-01-PLAN.md — Project scaffold + all test stubs (Wave 1) — completed 2026-03-16
 - [x] 01-02-PLAN.md — Foundation migrations: roles, tenants, api_keys (Wave 2) — completed 2026-03-16
 - [x] 01-03-PLAN.md — ERP + KB migrations, integration tests, startup check (Wave 3) — completed 2026-03-16
-- [ ] 01-04-PLAN.md — GitHub Actions CI workflow + human verification checkpoint (Wave 4)
+- [x] 01-04-PLAN.md — GitHub Actions CI workflow + human verification checkpoint (Wave 4) — completed 2026-03-16
 
 ### Phase 2: Tenant Management + MCP Shell
 **Goal**: A developer can provision a new tenant, receive an API key, and connect an MCP client that authenticates correctly and receives an empty tool list
@@ -79,7 +79,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Database Foundation | 3/4 | In progress | - |
+| 1. Database Foundation | 4/4 | Complete | 2026-03-16 |
 | 2. Tenant Management + MCP Shell | 0/? | Not started | - |
 | 3. ERP Domain Tools | 0/? | Not started | - |
 | 4. YouTrack KB Sync | 0/? | Not started | - |
@@ -151,3 +151,4 @@ Plans:
 *Updated: 2026-03-16 — Plan 01-01 complete (project scaffold + test stubs)*
 *Updated: 2026-03-16 — Plan 01-02 complete (SQL migrations: roles, tenants, api_keys with RLS + postgres.js client)*
 *Updated: 2026-03-16 — Plan 01-03 complete (ERP migrations: 7 RLS tables + kb_articles global cache + integration tests + check-pending.ts)*
+*Updated: 2026-03-16 — Phase 1 complete: Plan 01-04 done (GitHub Actions CI workflow created + human checkpoint approved — all 7 INFRA requirements verified)*

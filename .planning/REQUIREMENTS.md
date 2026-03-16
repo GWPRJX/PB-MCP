@@ -100,13 +100,13 @@
 
 | Requirement | Phase | Phase Name | Status |
 |-------------|-------|------------|--------|
-| INFRA-01 | Phase 1 | Database Foundation | Pending |
-| INFRA-02 | Phase 1 | Database Foundation | Pending |
+| INFRA-01 | Phase 1 | Database Foundation | Complete (01-01 scaffold; 01-04 CI verified) |
+| INFRA-02 | Phase 2 | Tenant Management + MCP Shell | Pending (MCP Streamable HTTP transport — Phase 2) |
 | INFRA-03 | Phase 1 | Database Foundation | Complete (01-02) |
 | INFRA-04 | Phase 1 | Database Foundation | Complete (01-02) |
 | INFRA-05 | Phase 1 | Database Foundation | Complete (01-02) |
-| INFRA-06 | Phase 1 | Database Foundation | Pending |
-| INFRA-07 | Phase 1 | Database Foundation | Pending |
+| INFRA-06 | Phase 1 | Database Foundation | Complete (check-pending.ts: 01-03; stdout verified: 01-04) |
+| INFRA-07 | Phase 1 | Database Foundation | Complete (assert-rls.sh: 01-01; GitHub Actions CI: 01-04) |
 | TENANT-01 | Phase 2 | Tenant Management + MCP Shell | Pending |
 | TENANT-02 | Phase 2 | Tenant Management + MCP Shell | Pending |
 | TENANT-03 | Phase 2 | Tenant Management + MCP Shell | Pending |

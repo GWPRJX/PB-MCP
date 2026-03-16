@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 1 — Database Foundation
-current_plan: 01-04 (checkpoint: awaiting human verification)
-status: In progress
-stopped_at: Plan 01-04 Task 1 complete — .github/workflows/ci.yml created (commit 2d16190); stopped at checkpoint:human-verify
-last_updated: "2026-03-16T08:36:00Z"
+current_plan: 02-01 (Phase 2 ready to begin)
+status: Phase 1 complete — ready for Phase 2
+stopped_at: Plan 01-04 complete — checkpoint approved; Phase 1 all 7 INFRA requirements satisfied
+last_updated: "2026-03-16T09:10:00Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # STATE: PB MCP
@@ -32,19 +32,19 @@ progress:
 
 ## Current Position
 
-**Current Phase:** 1 — Database Foundation
-**Current Plan:** 01-04 (checkpoint: awaiting human verification)
-**Status:** In progress — plan 01-04 Task 1 complete, stopped at checkpoint:human-verify
+**Current Phase:** 2 — Tenant Management + MCP Shell (ready to begin)
+**Current Plan:** 01-04 complete; Phase 1 done
+**Status:** Phase 1 complete — all 4 plans executed, all 7 INFRA requirements verified
 
 **Progress:**
 ```
-Phase 1 [███████   ] 85%  Database Foundation (3.5/4 plans done — CI created, verification pending)
+Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified)
 Phase 2 [          ] 0%   Tenant Management + MCP Shell
 Phase 3 [          ] 0%   ERP Domain Tools
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 0/4 phases complete (3/16 total plans)
+**Overall:** 1/4 phases complete (4/16 total plans)
 
 ---
 
@@ -52,7 +52,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | In progress (3.5/4 plans — CI checkpoint pending) |
+| 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | Not started |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Not started |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
@@ -61,16 +61,17 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 ## Performance Metrics
 
-**Plans executed:** 2
-**Plans passed verification:** 2
+**Plans executed:** 4
+**Plans passed verification:** 4
 **Plans failed verification:** 0
-**Requirements completed:** 7/40 (INFRA-01, INFRA-07, INFRA-03, INFRA-04, INFRA-05, INFRA-02 (partial), INFRA-06 (partial))
+**Requirements completed:** 7/40 (INFRA-01 through INFRA-07 — all Phase 1 requirements complete)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
 | 01-01 | 8min | 2 | 16 | 2026-03-16 |
 | 01-02 | 4min | 2 | 7 | 2026-03-16 |
 | 01-03 | 6min | 2 | 9 | 2026-03-16 |
+| 01-04 | 5min | 2 | 1 | 2026-03-16 |
 
 ---
 
@@ -99,6 +100,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **tsconfig.test.json:** Separate tsconfig extending main to include tests/** with rootDir=. for tsc --noEmit; main tsconfig rootDir=src excludes test files
 - **check-pending.ts:** Startup migration alert using MIGRATION_ALERT=true gate; compares .up.sql file count vs schema_migrations version; all output via process.stderr.write
 - **CI (INFRA-07):** GitHub Actions with postgres:17-alpine service, golang-migrate v4.19.1 pinned, assert-rls.sh as build gate; DATABASE_MIGRATION_URL (superuser) for migrations, DATABASE_URL (app_login) for vitest
+- **Phase 1 complete:** Schema with RLS verified end-to-end (human checkpoint approved 2026-03-16); CI gate active on all PRs
 
 ### Critical Pitfalls (must not skip)
 
@@ -142,10 +144,10 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T08:36:00Z
-**Stopped at:** Plan 01-04 Task 1 complete — .github/workflows/ci.yml created; stopped at checkpoint:human-verify (Task 2)
-**Next action:** After human approves checkpoint (all 6 verification steps pass), resume plan 01-04 continuation to finalize Phase 1 complete
+**Last session:** 2026-03-16T09:10:00Z
+**Stopped at:** Plan 01-04 complete — Phase 1 done (human checkpoint approved)
+**Next action:** Begin Phase 2 planning — Tenant Management + MCP Shell (TENANT-01 through TENANT-07)
 
 ---
 *State initialized: 2026-03-07*
-*Last updated: 2026-03-16 after plan 01-04 Task 1 execution (checkpoint pending)*
+*Last updated: 2026-03-16 after plan 01-04 checkpoint approved — Phase 1 complete*

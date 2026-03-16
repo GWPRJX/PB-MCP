@@ -48,22 +48,22 @@ patterns-established:
   - "CI pipeline order: checkout → setup-node → npm ci → install migrate → run migrations → create app roles → assert-rls.sh → npm test"
   - "golang-migrate always pinned to exact version in CI (v4.19.1) — never @latest"
 
-requirements-completed: [INFRA-01, INFRA-07]
+requirements-completed: [INFRA-01, INFRA-06, INFRA-07]
 
 # Metrics
-duration: ~2min (Task 1 only — checkpoint pending human verification)
+duration: ~5min (Task 1: CI workflow creation; Task 2: human checkpoint approved)
 completed: 2026-03-16
 ---
 
 # Phase 1 Plan 04: GitHub Actions CI Workflow Summary
 
-**GitHub Actions CI pipeline with postgres:17-alpine service, golang-migrate v4.19.1, assert-rls.sh INFRA-07 gate, and vitest — checkpoint awaiting human end-to-end verification**
+**GitHub Actions CI pipeline with postgres:17-alpine service, golang-migrate v4.19.1, assert-rls.sh INFRA-07 gate, and vitest — checkpoint approved; Phase 1 complete**
 
 ## Performance
 
-- **Duration:** ~2 min (Task 1 complete; checkpoint pending)
+- **Duration:** ~5 min
 - **Started:** 2026-03-16T08:34:42Z
-- **Tasks:** 1 of 2 (Task 2 is checkpoint:human-verify — blocking)
+- **Tasks:** 2 of 2 (complete)
 - **Files created:** 1 (.github/workflows/ci.yml)
 
 ## Accomplishments
@@ -102,15 +102,15 @@ Pinned to **v4.19.1** (not @latest). Install verified via `grep -q "v4.19.1" .gi
 
 ## Checkpoint Status
 
-**AWAITING HUMAN VERIFICATION** — Task 2 is a `checkpoint:human-verify` gate.
+**APPROVED** — All 6 end-to-end verification steps passed.
 
-The human must run the 6-step local verification:
+Human verification results (2026-03-16):
 1. `docker compose up -d postgres` — postgres service healthy
-2. `npm run migrate:up` + `npm run migrate:status` — 5 migrations applied at version 5
-3. `bash scripts/assert-rls.sh` — exits 0 (all 8 tenant-bearing tables have ENABLE+FORCE RLS + policy)
+2. `npm run migrate:up` + `npm run migrate:status` — 5 migrations applied, version 5 confirmed
+3. `bash scripts/assert-rls.sh` — exits 0 ("RLS check passed")
 4. `npm run test:db` — all tests pass, 0 failures
-5. RLS spot-check as app_login with and without tenant context
-6. `node src/index.ts` stdout/stderr verification
+5. RLS spot-check — no-context query returns 0 rows (isolation confirmed)
+6. `node src/index.ts` — stdout empty, startup message on stderr only
 
 ## Deviations from Plan
 
@@ -122,10 +122,10 @@ No issues. File created and verified in a single pass.
 
 ## Next Phase Readiness
 
-- When the checkpoint is approved, Phase 1 is 100% complete (all 7 INFRA requirements satisfied)
+- Phase 1 is 100% complete — all 7 INFRA requirements satisfied and human-verified
 - Phase 2 (Tenant Management + MCP Shell) can begin
-- CI is now the enforcement gate for all future RLS requirements
+- CI is the enforcement gate for all future RLS requirements in every PR
 
 ---
 *Phase: 01-database-foundation*
-*Completed: 2026-03-16 (checkpoint pending)*
+*Completed: 2026-03-16*
