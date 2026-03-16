@@ -40,14 +40,20 @@ Plans:
 ### Phase 2: Tenant Management + MCP Shell
 **Goal**: A developer can provision a new tenant, receive an API key, and connect an MCP client that authenticates correctly and receives an empty tool list
 **Depends on**: Phase 1
-**Requirements**: TENANT-01, TENANT-02, TENANT-03, TENANT-04, TENANT-05, TENANT-06, TENANT-07
+**Requirements**: TENANT-01, TENANT-02, TENANT-03, TENANT-04, TENANT-05, TENANT-06, TENANT-07, INFRA-02
 **Success Criteria** (what must be TRUE):
   1. `POST /admin/tenants` with name, slug, and plan returns `{ tenantId, apiKey }` — the raw API key is shown exactly once and never retrievable again
   2. `GET /admin/tenants` lists all tenants with status and key count; `GET /admin/tenants/:id` returns full tenant detail
   3. Admin can issue additional API keys for a tenant and revoke any key; revoked keys are immediately rejected
   4. An MCP client presenting a valid API key in the request header receives a successful `tools/list` response (empty list) from the MCP server; an invalid or missing key is rejected with an auth error
   5. Developer onboarding end-to-end — clone repo, run migrations, create tenant, connect Claude Desktop or MCP Inspector — completes in under 10 minutes
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Dependencies install + all test stubs (Wave 1)
+- [ ] 02-02-PLAN.md — Drizzle schema + TenantService + AsyncLocalStorage context (Wave 2)
+- [ ] 02-03-PLAN.md — Admin REST API: Fastify server + 5 routes + admin test suite (Wave 3)
+- [ ] 02-04-PLAN.md — MCP server shell + auth middleware + server entry point + human checkpoint (Wave 4)
 
 ### Phase 3: ERP Domain Tools
 **Goal**: An AI client authenticated as a tenant can query inventory, orders, billing, and contacts through MCP tools, covering all read-only ERP operations
@@ -80,7 +86,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 4/4 | Complete | 2026-03-16 |
-| 2. Tenant Management + MCP Shell | 0/? | Not started | - |
+| 2. Tenant Management + MCP Shell | 0/4 | Planned | - |
 | 3. ERP Domain Tools | 0/? | Not started | - |
 | 4. YouTrack KB Sync | 0/? | Not started | - |
 
@@ -144,6 +150,7 @@ Plans:
 | ERP domain tools in one phase | INV, ORD, CRM are all read-only, share the same handler shape, and have no inter-phase dependencies; coarse granularity warrants grouping |
 | KB-08 flagged high complexity | Research rates this "Very High" complexity and recommends deferring; criterion 5 in Phase 4 explicitly allows deferral within the phase |
 | Write tools deferred to v2 | WRITE-01 through WRITE-07 are v2 requirements; no v1 requirement covers MCP write operations |
+| Single /mcp endpoint | Tenant identified via X-Api-Key header, not URL path; stateless StreamableHTTPServerTransport with sessionIdGenerator: undefined |
 
 ---
 *Roadmap created: 2026-03-07*
@@ -152,3 +159,4 @@ Plans:
 *Updated: 2026-03-16 — Plan 01-02 complete (SQL migrations: roles, tenants, api_keys with RLS + postgres.js client)*
 *Updated: 2026-03-16 — Plan 01-03 complete (ERP migrations: 7 RLS tables + kb_articles global cache + integration tests + check-pending.ts)*
 *Updated: 2026-03-16 — Phase 1 complete: Plan 01-04 done (GitHub Actions CI workflow created + human checkpoint approved — all 7 INFRA requirements verified)*
+*Updated: 2026-03-16 — Phase 2 planned: 4 plans across 4 waves covering TENANT-01 through TENANT-07 + INFRA-02*
