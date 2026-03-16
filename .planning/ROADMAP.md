@@ -34,7 +34,7 @@
 Plans:
 - [x] 01-01-PLAN.md — Project scaffold + all test stubs (Wave 1) — completed 2026-03-16
 - [x] 01-02-PLAN.md — Foundation migrations: roles, tenants, api_keys (Wave 2) — completed 2026-03-16
-- [ ] 01-03-PLAN.md — ERP + KB migrations, integration tests, startup check (Wave 3)
+- [x] 01-03-PLAN.md — ERP + KB migrations, integration tests, startup check (Wave 3) — completed 2026-03-16
 - [ ] 01-04-PLAN.md — GitHub Actions CI workflow + human verification checkpoint (Wave 4)
 
 ### Phase 2: Tenant Management + MCP Shell
@@ -79,7 +79,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Database Foundation | 2/4 | In progress | - |
+| 1. Database Foundation | 3/4 | In progress | - |
 | 2. Tenant Management + MCP Shell | 0/? | Not started | - |
 | 3. ERP Domain Tools | 0/? | Not started | - |
 | 4. YouTrack KB Sync | 0/? | Not started | - |
@@ -150,3 +150,4 @@ Plans:
 *Updated: 2026-03-10 — Phase 1 planned (4 plans, 4 waves)*
 *Updated: 2026-03-16 — Plan 01-01 complete (project scaffold + test stubs)*
 *Updated: 2026-03-16 — Plan 01-02 complete (SQL migrations: roles, tenants, api_keys with RLS + postgres.js client)*
+*Updated: 2026-03-16 — Plan 01-03 complete (ERP migrations: 7 RLS tables + kb_articles global cache + integration tests + check-pending.ts)*

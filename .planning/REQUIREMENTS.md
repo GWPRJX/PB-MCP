@@ -12,7 +12,7 @@
 - [x] **INFRA-03**: PostgreSQL with Row-Level Security (RLS) isolates all tenant data in a shared schema *(tenant_isolation policy on api_keys: 01-02; full coverage: 01-03)*
 - [x] **INFRA-04**: Every tenant-bearing table has both `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` *(api_keys migration: 01-02; all ERP tables: 01-03)*
 - [x] **INFRA-05**: Application uses a dedicated non-superuser PostgreSQL role (no BYPASSRLS) *(app_user NOLOGIN + app_login LOGIN, no BYPASSRLS: 01-02)*
-- [ ] **INFRA-06**: stderr-only logging (no stdout writes that corrupt MCP transport)
+- [x] **INFRA-06**: stderr-only logging (no stdout writes that corrupt MCP transport) *(check-pending.ts uses process.stderr.write only: 01-03; full server stderr verified: 01-04)*
 - [x] **INFRA-07**: CI check asserts all tenant-bearing tables have RLS policies *(assert-rls.sh: 01-01; wired into GitHub Actions: 01-04)*
 
 ### Tenant Management

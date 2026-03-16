@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 1 — Database Foundation
-current_plan: 01-03 (ready to execute)
+current_plan: 01-04 (ready to execute)
 status: In progress
-stopped_at: Completed 01-02-PLAN.md — SQL migrations + postgres.js client done
-last_updated: "2026-03-16T08:19:00.000Z"
+stopped_at: Completed 01-03-PLAN.md — ERP migrations, kb_articles, RLS integration tests, check-pending.ts
+last_updated: "2026-03-16T08:30:46Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # STATE: PB MCP
@@ -33,18 +33,18 @@ progress:
 ## Current Position
 
 **Current Phase:** 1 — Database Foundation
-**Current Plan:** 01-03 (ready to execute)
-**Status:** In progress — plan 01-02 complete
+**Current Plan:** 01-04 (ready to execute)
+**Status:** In progress — plan 01-03 complete
 
 **Progress:**
 ```
-Phase 1 [████      ] 50%  Database Foundation (2/4 plans done)
+Phase 1 [██████    ] 75%  Database Foundation (3/4 plans done)
 Phase 2 [          ] 0%   Tenant Management + MCP Shell
 Phase 3 [          ] 0%   ERP Domain Tools
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 0/4 phases complete (2/16 total plans)
+**Overall:** 0/4 phases complete (3/16 total plans)
 
 ---
 
@@ -64,12 +64,13 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 **Plans executed:** 2
 **Plans passed verification:** 2
 **Plans failed verification:** 0
-**Requirements completed:** 5/40 (INFRA-01, INFRA-07, INFRA-03, INFRA-04, INFRA-05)
+**Requirements completed:** 7/40 (INFRA-01, INFRA-07, INFRA-03, INFRA-04, INFRA-05, INFRA-02 (partial), INFRA-06 (partial))
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
 | 01-01 | 8min | 2 | 16 | 2026-03-16 |
 | 01-02 | 4min | 2 | 7 | 2026-03-16 |
+| 01-03 | 6min | 2 | 9 | 2026-03-16 |
 
 ---
 
@@ -92,6 +93,11 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **RLS pattern:** ENABLE+FORCE ROW LEVEL SECURITY on all tenant-bearing tables; `current_setting('app.current_tenant_id', true)::uuid` in policy (null-safe — returns zero rows, not error, when unset)
 - **tenants table:** No RLS — it IS the tenant registry itself, not a tenant-bearing table
 - **postgres.js TransactionSql:** Cast `tx as unknown as postgres.Sql` to access template-tag call signature in strict TypeScript (safe — runtime behavior unchanged)
+- **Scoped uniqueness:** UNIQUE(tenant_id, sku) and UNIQUE(tenant_id, email) — NOT global — prevents cross-tenant uniqueness leaks via constraint errors
+- **order_line_items:** No updated_at column — financial line items are append-only records
+- **kb_articles:** Global cache, no tenant_id, no RLS — locked decision from Phase 1 context; all tenants share YouTrack article data
+- **tsconfig.test.json:** Separate tsconfig extending main to include tests/** with rootDir=. for tsc --noEmit; main tsconfig rootDir=src excludes test files
+- **check-pending.ts:** Startup migration alert using MIGRATION_ALERT=true gate; compares .up.sql file count vs schema_migrations version; all output via process.stderr.write
 
 ### Critical Pitfalls (must not skip)
 
@@ -135,9 +141,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T08:19:00.000Z
-**Stopped at:** Completed 01-02-PLAN.md — SQL migrations (roles, tenants, api_keys with RLS) + postgres.js client done
-**Next action:** Run plan 01-03 (RLS integration tests — fill in test stubs with real DB queries)
+**Last session:** 2026-03-16T08:30:46Z
+**Stopped at:** Completed 01-03-PLAN.md — ERP migrations (7 tables with RLS), kb_articles (global cache), RLS integration tests (12 real it() tests), check-pending.ts startup alert
+**Next action:** Run plan 01-04 (GitHub Actions CI workflow + human verification checkpoint)
 
 ---
 *State initialized: 2026-03-07*
