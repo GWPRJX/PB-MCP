@@ -101,7 +101,7 @@
 | Requirement | Phase | Phase Name | Status |
 |-------------|-------|------------|--------|
 | INFRA-01 | Phase 1 | Database Foundation | Complete (01-01 scaffold; 01-04 CI verified) |
-| INFRA-02 | Phase 2 | Tenant Management + MCP Shell | Pending (MCP Streamable HTTP transport — Phase 2) |
+| INFRA-02 | Phase 2 | Tenant Management + MCP Shell | Complete (Streamable HTTP transport: 02-04; human-verified 2026-03-16) |
 | INFRA-03 | Phase 1 | Database Foundation | Complete (01-02) |
 | INFRA-04 | Phase 1 | Database Foundation | Complete (01-02) |
 | INFRA-05 | Phase 1 | Database Foundation | Complete (01-02) |
@@ -112,8 +112,8 @@
 | TENANT-03 | Phase 2 | Tenant Management + MCP Shell | Complete (service: 02-02; REST + 24 tests: 02-03) |
 | TENANT-04 | Phase 2 | Tenant Management + MCP Shell | Complete (service: 02-02; REST + 24 tests: 02-03) |
 | TENANT-05 | Phase 2 | Tenant Management + MCP Shell | Complete (service: 02-02; REST + 24 tests: 02-03) |
-| TENANT-06 | Phase 2 | Tenant Management + MCP Shell | Pending |
-| TENANT-07 | Phase 2 | Tenant Management + MCP Shell | In Progress (service layer: 02-02; MCP auth: 02-04 pending) |
+| TENANT-06 | Phase 2 | Tenant Management + MCP Shell | Complete (MCP auth middleware: 02-04; human-verified 2026-03-16) |
+| TENANT-07 | Phase 2 | Tenant Management + MCP Shell | Complete (service layer: 02-02; MCP auth + tenantStorage: 02-04; human-verified 2026-03-16) |
 | INV-01 | Phase 3 | ERP Domain Tools | Pending |
 | INV-02 | Phase 3 | ERP Domain Tools | Pending |
 | INV-03 | Phase 3 | ERP Domain Tools | Pending |

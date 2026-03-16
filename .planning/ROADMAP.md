@@ -11,7 +11,7 @@
 ## Phases
 
 - [x] **Phase 1: Database Foundation** - PostgreSQL schema with RLS enforcing tenant isolation; CI-verified cross-tenant data separation before any application layer is built
-- [ ] **Phase 2: Tenant Management + MCP Shell** - Admin REST API for tenant provisioning, API key management, and the MCP server transport layer with per-request tenant auth middleware
+- [x] **Phase 2: Tenant Management + MCP Shell** - Admin REST API for tenant provisioning, API key management, and the MCP server transport layer with per-request tenant auth middleware
 - [ ] **Phase 3: ERP Domain Tools** - All read-only MCP tools for Inventory, Orders/Billing, and CRM giving AI clients full query access to tenant ERP data
 - [ ] **Phase 4: YouTrack KB Sync** - YouTrack article cache, scheduled sync, and KB query tools so AI clients can search live API documentation
 
@@ -47,13 +47,13 @@ Plans:
   3. Admin can issue additional API keys for a tenant and revoke any key; revoked keys are immediately rejected
   4. An MCP client presenting a valid API key in the request header receives a successful `tools/list` response (empty list) from the MCP server; an invalid or missing key is rejected with an auth error
   5. Developer onboarding end-to-end — clone repo, run migrations, create tenant, connect Claude Desktop or MCP Inspector — completes in under 10 minutes
-**Plans:** 3/4 plans executed
+**Plans:** 4 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Dependencies install + all test stubs (Wave 1)
-- [ ] 02-02-PLAN.md — Drizzle schema + TenantService + AsyncLocalStorage context (Wave 2)
-- [ ] 02-03-PLAN.md — Admin REST API: Fastify server + 5 routes + admin test suite (Wave 3)
-- [ ] 02-04-PLAN.md — MCP server shell + auth middleware + server entry point + human checkpoint (Wave 4)
+- [x] 02-01-PLAN.md — Dependencies install + all test stubs (Wave 1) — completed 2026-03-16
+- [x] 02-02-PLAN.md — Drizzle schema + TenantService + AsyncLocalStorage context (Wave 2) — completed 2026-03-16
+- [x] 02-03-PLAN.md — Admin REST API: Fastify server + 5 routes + admin test suite (Wave 3) — completed 2026-03-16
+- [x] 02-04-PLAN.md — MCP server shell + auth middleware + server entry point + human checkpoint (Wave 4) — completed 2026-03-16
 
 ### Phase 3: ERP Domain Tools
 **Goal**: An AI client authenticated as a tenant can query inventory, orders, billing, and contacts through MCP tools, covering all read-only ERP operations
@@ -86,7 +86,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 4/4 | Complete | 2026-03-16 |
-| 2. Tenant Management + MCP Shell | 3/4 | In Progress|  |
+| 2. Tenant Management + MCP Shell | 4/4 | Complete | 2026-03-16 |
 | 3. ERP Domain Tools | 0/? | Not started | - |
 | 4. YouTrack KB Sync | 0/? | Not started | - |
 
@@ -160,3 +160,4 @@ Plans:
 *Updated: 2026-03-16 — Plan 01-03 complete (ERP migrations: 7 RLS tables + kb_articles global cache + integration tests + check-pending.ts)*
 *Updated: 2026-03-16 — Phase 1 complete: Plan 01-04 done (GitHub Actions CI workflow created + human checkpoint approved — all 7 INFRA requirements verified)*
 *Updated: 2026-03-16 — Phase 2 planned: 4 plans across 4 waves covering TENANT-01 through TENANT-07 + INFRA-02*
+*Updated: 2026-03-16 — Phase 2 complete: Plan 02-04 done (MCP server shell + auth middleware + full test suite — human checkpoint approved, MCP Inspector connected)*

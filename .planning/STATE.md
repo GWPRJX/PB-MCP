@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_plan: 4 (02-04 next)
+current_phase: 3
+current_plan: 1 (03-01 next)
 status: executing
-stopped_at: Completed 02-03-PLAN.md
-last_updated: "2026-03-16T10:20:24Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-03-16T11:00:00Z"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
-  percent: 88
+  completed_plans: 8
+  percent: 100
 ---
 
 # STATE: PB MCP
@@ -32,20 +32,20 @@ progress:
 
 ## Current Position
 
-**Current Phase:** 2
-**Current Plan:** 4 (02-04 next)
+**Current Phase:** 3
+**Current Plan:** 1 (03-01 next)
 **Status:** In progress
 
 **Progress:**
 ```
-[█████████░] 88%
+[██████████] 100% (Phase 1+2 complete)
 Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified)
-Phase 2 [██████░░░░] 75%  Tenant Management + MCP Shell (3/4 plans done)
+Phase 2 [██████████] 100% Tenant Management + MCP Shell (4/4 plans done — human-verified)
 Phase 3 [          ] 0%   ERP Domain Tools
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 1/4 phases complete (7/8 plans in progress phases)
+**Overall:** 2/4 phases complete (8/8 plans in first 2 phases)
 
 ---
 
@@ -54,7 +54,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
-| 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | In progress (3/4 plans — 02-01, 02-02, 02-03 complete) |
+| 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 + INFRA-02 (8) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Not started |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
 
@@ -62,10 +62,10 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 ## Performance Metrics
 
-**Plans executed:** 7
-**Plans passed verification:** 7
+**Plans executed:** 8
+**Plans passed verification:** 8
 **Plans failed verification:** 0
-**Requirements completed:** 26/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-05, TENANT-07 complete; TENANT-01 through TENANT-05 verified end-to-end via 02-03)
+**Requirements completed:** 29/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; all Phase 1+2 requirements verified end-to-end)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
@@ -76,6 +76,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | 02-01 | 3min | 2 | 6 | 2026-03-16 |
 | 02-02 | 10min | 2 | 4 | 2026-03-16 |
 | 02-03 | 7min | 2 | 5 | 2026-03-16 |
+| 02-04 | 25min | 2 | 7 | 2026-03-16 |
 
 ## Accumulated Context
 
@@ -103,13 +104,18 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **check-pending.ts:** Startup migration alert using MIGRATION_ALERT=true gate; compares .up.sql file count vs schema_migrations version; all output via process.stderr.write
 - **CI (INFRA-07):** GitHub Actions with postgres:17-alpine service, golang-migrate v4.19.1 pinned, assert-rls.sh as build gate; DATABASE_MIGRATION_URL (superuser) for migrations, DATABASE_URL (app_login) for vitest
 - **Phase 1 complete:** Schema with RLS verified end-to-end (human checkpoint approved 2026-03-16); CI gate active on all PRs
+- **Phase 2 complete:** Admin REST API + MCP shell verified end-to-end (human checkpoint approved 2026-03-16); MCP Inspector connected, tools/list returns empty array, auth rejection confirmed
 - **Auth lookup RLS bypass:** `lookupApiKeyByHash` uses a short-lived `postgres()` connection via `DATABASE_MIGRATION_URL` (superuser, no RLS) to resolve `key_hash` to `tenant_id` — necessary because `api_keys` RLS hides all rows when `app.current_tenant_id` is unset; this pool is read-only and closed after each call
 - **API key format:** `pb_` + `randomBytes(32).toString('hex')` = 67-char key; SHA-256 hash stored; raw key returned once at creation
 - **TenantService pattern:** All admin DB operations in `src/admin/tenant-service.ts`; route handlers import service functions — no raw SQL in routes
 - **FORCE RLS on api_keys affects INSERTs:** `createTenant` and `createApiKey` must call `set_config('app.current_tenant_id', id, true)` in the same transaction before inserting into api_keys — even admin operations are blocked without context
 - **listTenants uses superuser connection:** Cross-tenant aggregate JOIN on api_keys requires DATABASE_MIGRATION_URL (BYPASSRLS) — app_login sees zero rows for the JOIN without per-tenant context
 - **Test cleanup requires superuser:** `DELETE FROM tenants` uses DATABASE_MIGRATION_URL — app_login has SELECT/INSERT/UPDATE only (no DELETE), intentional security boundary
-- **buildServer() factory pattern:** Fastify instance exported from src/server.ts; used by tests via inject() and by src/index.ts for actual listen(); Wave 4 registers MCP plugin on same instance
+- **buildServer() factory pattern:** Fastify instance exported from src/server.ts; used by tests via inject() and by src/index.ts for actual listen(); MCP routes registered on same instance in src/index.ts
+- **MCP transport pattern:** Single `StreamableHTTPServerTransport` instance with `sessionIdGenerator: undefined` (stateless); connected once via `mcpServer.connect(transport)`; all /mcp route handlers share the instance; `reply.hijack()` required after `transport.handleRequest()` to prevent Fastify double-response
+- **MCP auth middleware:** `extractAndValidateApiKey(request, reply, handler)` is sole entry point for tenant context; SHA-256 hashes X-Api-Key header → DB lookup → `tenantStorage.run({ tenantId, keyId }, handler)`; returns 401 JSON-RPC error on missing/invalid/revoked key
+- **SSE GET test approach:** GET /mcp tests use `fetch` + `AbortController` instead of `app.inject()` — inject() hangs waiting for SSE stream to close; fetch can be aborted after headers arrive
+- **Streamable HTTP URL decision:** Single `/mcp` endpoint (POST/GET/DELETE); tenant identified via X-Api-Key header, not URL path — resolved Open Question #2
 
 ### Critical Pitfalls (must not skip)
 
@@ -140,7 +146,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 ## Todos
 
 - [ ] Decide tool naming convention before Phase 3 planning begins
-- [ ] Decide Streamable HTTP URL structure before Phase 2 planning begins
+- [x] Decide Streamable HTTP URL structure — resolved: single /mcp endpoint, per-request stateless transport, X-Api-Key header identifies tenant
 - [ ] Confirm YouTrack sandbox access before Phase 4 planning begins
 
 ---
@@ -153,10 +159,10 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T10:20:24Z
-**Stopped at:** Completed 02-03-PLAN.md
-**Next action:** Execute plan 02-04 — MCP Server + Auth (Wave 4)
+**Last session:** 2026-03-16T11:00:00Z
+**Stopped at:** Completed 02-04-PLAN.md
+**Next action:** Plan Phase 3 — ERP Domain Tools (18 requirements: INV, ORD, CRM)
 
 ---
 *State initialized: 2026-03-07*
-*Last updated: 2026-03-16 after plan 02-03 complete — Admin REST API + tests (24 passing)*
+*Last updated: 2026-03-16 after plan 02-04 complete — MCP server shell + auth middleware + full test suite (Phase 2 human checkpoint approved)*
