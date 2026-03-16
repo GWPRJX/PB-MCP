@@ -1,0 +1,2 @@
+REVOKE SELECT, INSERT, UPDATE ON tenants FROM app_user;
+DROP TABLE IF EXISTS tenants;
