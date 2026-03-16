@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 2
-current_plan: "2 (02-02 next)"
-status: in-progress
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-16T10:02:05.269Z"
+current_plan: 3 (02-03 next)
+status: executing
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-16T10:09:53.101Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 63
+  completed_plans: 6
+  percent: 75
 ---
 
 # STATE: PB MCP
@@ -33,19 +33,19 @@ progress:
 ## Current Position
 
 **Current Phase:** 2
-**Current Plan:** 2 (02-02 next)
+**Current Plan:** 3 (02-03 next)
 **Status:** In progress
 
 **Progress:**
 ```
-[██████░░░░] 63%
+[████████░░] 75%
 Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified)
-Phase 2 [██░░░░░░░░] 25%  Tenant Management + MCP Shell (1/4 plans done)
+Phase 2 [████░░░░░░] 50%  Tenant Management + MCP Shell (2/4 plans done)
 Phase 3 [          ] 0%   ERP Domain Tools
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 1/4 phases complete (5/20 total plans)
+**Overall:** 1/4 phases complete (6/8 plans in progress phases)
 
 ---
 
@@ -54,7 +54,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
-| 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | In progress (1/4 plans — 02-01 complete) |
+| 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | In progress (2/4 plans — 02-01, 02-02 complete) |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Not started |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
 
@@ -62,10 +62,10 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 ## Performance Metrics
 
-**Plans executed:** 5
-**Plans passed verification:** 5
+**Plans executed:** 6
+**Plans passed verification:** 6
 **Plans failed verification:** 0
-**Requirements completed:** 15/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 + INFRA-02 stubs created in 02-01)
+**Requirements completed:** 21/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-05, TENANT-07 complete via 02-02)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
@@ -74,6 +74,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | 01-03 | 6min | 2 | 9 | 2026-03-16 |
 | 01-04 | 5min | 2 | 1 | 2026-03-16 |
 | 02-01 | 3min | 2 | 6 | 2026-03-16 |
+| 02-02 | 10min | 2 | 4 | 2026-03-16 |
 
 ## Accumulated Context
 
@@ -101,6 +102,9 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **check-pending.ts:** Startup migration alert using MIGRATION_ALERT=true gate; compares .up.sql file count vs schema_migrations version; all output via process.stderr.write
 - **CI (INFRA-07):** GitHub Actions with postgres:17-alpine service, golang-migrate v4.19.1 pinned, assert-rls.sh as build gate; DATABASE_MIGRATION_URL (superuser) for migrations, DATABASE_URL (app_login) for vitest
 - **Phase 1 complete:** Schema with RLS verified end-to-end (human checkpoint approved 2026-03-16); CI gate active on all PRs
+- **Auth lookup RLS bypass:** `lookupApiKeyByHash` uses a short-lived `postgres()` connection via `DATABASE_MIGRATION_URL` (superuser, no RLS) to resolve `key_hash` to `tenant_id` — necessary because `api_keys` RLS hides all rows when `app.current_tenant_id` is unset; this pool is read-only and closed after each call
+- **API key format:** `pb_` + `randomBytes(32).toString('hex')` = 67-char key; SHA-256 hash stored; raw key returned once at creation
+- **TenantService pattern:** All admin DB operations in `src/admin/tenant-service.ts`; route handlers import service functions — no raw SQL in routes
 
 ### Critical Pitfalls (must not skip)
 
@@ -144,10 +148,10 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T10:02:05.267Z
-**Stopped at:** Completed 02-01-PLAN.md
-**Next action:** Execute plan 02-02 — Tenant + API-Key schema (Wave 2)
+**Last session:** 2026-03-16T10:09:53.099Z
+**Stopped at:** Completed 02-02-PLAN.md
+**Next action:** Execute plan 02-03 — Admin REST API (Wave 3)
 
 ---
 *State initialized: 2026-03-07*
-*Last updated: 2026-03-16 after plan 01-04 checkpoint approved — Phase 1 complete*
+*Last updated: 2026-03-16 after plan 02-02 complete — Tenant data layer built*

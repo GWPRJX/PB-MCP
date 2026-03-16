@@ -107,13 +107,13 @@
 | INFRA-05 | Phase 1 | Database Foundation | Complete (01-02) |
 | INFRA-06 | Phase 1 | Database Foundation | Complete (check-pending.ts: 01-03; stdout verified: 01-04) |
 | INFRA-07 | Phase 1 | Database Foundation | Complete (assert-rls.sh: 01-01; GitHub Actions CI: 01-04) |
-| TENANT-01 | Phase 2 | Tenant Management + MCP Shell | Pending |
-| TENANT-02 | Phase 2 | Tenant Management + MCP Shell | Pending |
-| TENANT-03 | Phase 2 | Tenant Management + MCP Shell | Pending |
-| TENANT-04 | Phase 2 | Tenant Management + MCP Shell | Pending |
-| TENANT-05 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| TENANT-01 | Phase 2 | Tenant Management + MCP Shell | In Progress (service layer: 02-02; REST API: 02-03 pending) |
+| TENANT-02 | Phase 2 | Tenant Management + MCP Shell | In Progress (service layer: 02-02; REST API: 02-03 pending) |
+| TENANT-03 | Phase 2 | Tenant Management + MCP Shell | In Progress (service layer: 02-02; REST API: 02-03 pending) |
+| TENANT-04 | Phase 2 | Tenant Management + MCP Shell | In Progress (service layer: 02-02; REST API: 02-03 pending) |
+| TENANT-05 | Phase 2 | Tenant Management + MCP Shell | In Progress (service layer: 02-02; REST API: 02-03 pending) |
 | TENANT-06 | Phase 2 | Tenant Management + MCP Shell | Pending |
-| TENANT-07 | Phase 2 | Tenant Management + MCP Shell | Pending |
+| TENANT-07 | Phase 2 | Tenant Management + MCP Shell | In Progress (service layer: 02-02; MCP auth: 02-04 pending) |
 | INV-01 | Phase 3 | ERP Domain Tools | Pending |
 | INV-02 | Phase 3 | ERP Domain Tools | Pending |
 | INV-03 | Phase 3 | ERP Domain Tools | Pending |
