@@ -90,6 +90,10 @@ export async function createTenant(
 
     const tenant = inserted[0];
 
+    // Set RLS context before inserting api_key — FORCE ROW LEVEL SECURITY requires
+    // app.current_tenant_id to be set even for INSERTs by the app_login role.
+    await txSql`SELECT set_config('app.current_tenant_id', ${tenant.id}, true)`;
+
     // Insert initial API key for the tenant
     await txSql`
       INSERT INTO api_keys (tenant_id, key_hash, label)
@@ -112,25 +116,34 @@ export async function createTenant(
 
 /**
  * List all tenants with their active key counts.
- * Admin-only — no RLS context needed (tenants table has no RLS).
+ * Admin-only — uses DATABASE_MIGRATION_URL (superuser, no RLS) to JOIN api_keys,
+ * because FORCE ROW LEVEL SECURITY on api_keys would return zero rows for the JOIN
+ * when no app.current_tenant_id is set (which is correct for per-tenant reads but
+ * wrong for admin-level aggregate queries across all tenants).
  */
 export async function listTenants(): Promise<TenantListItem[]> {
-  const rows = await sql<(TenantRow & { keyCount: string })[]>`
-    SELECT
-      t.id, t.name, t.slug, t.plan, t.status,
-      t.created_at AS "createdAt",
-      t.updated_at AS "updatedAt",
-      COUNT(k.id) FILTER (WHERE k.status = 'active') AS "keyCount"
-    FROM tenants t
-    LEFT JOIN api_keys k ON k.tenant_id = t.id
-    GROUP BY t.id
-    ORDER BY t.created_at DESC
-  `;
+  const adminSql = postgres(process.env.DATABASE_MIGRATION_URL ?? process.env.DATABASE_URL ?? '', { max: 2 });
 
-  return rows.map((r) => ({
-    ...r,
-    keyCount: Number(r.keyCount),
-  }));
+  try {
+    const rows = await adminSql<(TenantRow & { keyCount: string })[]>`
+      SELECT
+        t.id, t.name, t.slug, t.plan, t.status,
+        t.created_at AS "createdAt",
+        t.updated_at AS "updatedAt",
+        COUNT(k.id) FILTER (WHERE k.status = 'active') AS "keyCount"
+      FROM tenants t
+      LEFT JOIN api_keys k ON k.tenant_id = t.id
+      GROUP BY t.id
+      ORDER BY t.created_at DESC
+    `;
+
+    return rows.map((r) => ({
+      ...r,
+      keyCount: Number(r.keyCount),
+    }));
+  } finally {
+    await adminSql.end();
+  }
 }
 
 /**
@@ -181,12 +194,18 @@ export async function createApiKey(
 ): Promise<CreateApiKeyResult> {
   const { raw, hash } = generateApiKey();
 
-  const [keyRow] = await sql<ApiKeyRow[]>`
-    INSERT INTO api_keys (tenant_id, key_hash, label)
-    VALUES (${tenantId}, ${hash}, ${label ?? null})
-    RETURNING id, tenant_id AS "tenantId", label, status,
-              created_at AS "createdAt", revoked_at AS "revokedAt"
-  `;
+  // Wrap in a transaction and set RLS context before INSERT.
+  // FORCE ROW LEVEL SECURITY requires app.current_tenant_id to be set for INSERTs.
+  const [keyRow] = await sql.begin(async (tx) => {
+    const txSql = tx as unknown as postgres.Sql;
+    await txSql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+    return txSql<ApiKeyRow[]>`
+      INSERT INTO api_keys (tenant_id, key_hash, label)
+      VALUES (${tenantId}, ${hash}, ${label ?? null})
+      RETURNING id, tenant_id AS "tenantId", label, status,
+                created_at AS "createdAt", revoked_at AS "revokedAt"
+    `;
+  });
 
   return { apiKey: keyRow, rawKey: raw };
 }
