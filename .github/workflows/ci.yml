@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pb_mcp_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgres://app_login:ci_password@localhost:5432/pb_mcp_test
+      DATABASE_MIGRATION_URL: postgres://postgres:postgres@localhost:5432/pb_mcp_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.1/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/migrate
+
+      - name: Run migrations
+        run: migrate -path db/migrations -database "$DATABASE_MIGRATION_URL" up
+
+      - name: Create app roles in test DB
+        run: |
+          psql "$DATABASE_MIGRATION_URL" -c "
+            DO \$\$ BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN
+                CREATE ROLE app_user NOLOGIN;
+              END IF;
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_login') THEN
+                CREATE ROLE app_login LOGIN PASSWORD 'ci_password';
+              END IF;
+            END \$\$;
+            GRANT app_user TO app_login;
+            GRANT CONNECT ON DATABASE pb_mcp_test TO app_user;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+            GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
+          "
+
+      - name: Assert RLS coverage (INFRA-07)
+        run: bash scripts/assert-rls.sh
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/pb_mcp_test
+
+      - name: Run test suite
+        run: npm test
+        env:
+          DATABASE_URL: postgres://app_login:ci_password@localhost:5432/pb_mcp_test
+          DATABASE_MIGRATION_URL: postgres://postgres:postgres@localhost:5432/pb_mcp_test
