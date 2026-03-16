@@ -1,0 +1,4 @@
+DROP POLICY IF EXISTS tenant_isolation ON api_keys;
+ALTER TABLE api_keys DISABLE ROW LEVEL SECURITY;
+REVOKE SELECT, INSERT, UPDATE ON api_keys FROM app_user;
+DROP TABLE IF EXISTS api_keys;
