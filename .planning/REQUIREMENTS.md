@@ -9,9 +9,9 @@
 
 - [x] **INFRA-01**: System runs as a single Node.js (TypeScript) process with Fastify 5 *(scaffold: 01-01; full implementation: Phase 2)*
 - [ ] **INFRA-02**: MCP server uses Streamable HTTP transport (not stdio)
-- [ ] **INFRA-03**: PostgreSQL with Row-Level Security (RLS) isolates all tenant data in a shared schema
-- [ ] **INFRA-04**: Every tenant-bearing table has both `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`
-- [ ] **INFRA-05**: Application uses a dedicated non-superuser PostgreSQL role (no BYPASSRLS)
+- [x] **INFRA-03**: PostgreSQL with Row-Level Security (RLS) isolates all tenant data in a shared schema *(tenant_isolation policy on api_keys: 01-02; full coverage: 01-03)*
+- [x] **INFRA-04**: Every tenant-bearing table has both `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` *(api_keys migration: 01-02; all ERP tables: 01-03)*
+- [x] **INFRA-05**: Application uses a dedicated non-superuser PostgreSQL role (no BYPASSRLS) *(app_user NOLOGIN + app_login LOGIN, no BYPASSRLS: 01-02)*
 - [ ] **INFRA-06**: stderr-only logging (no stdout writes that corrupt MCP transport)
 - [x] **INFRA-07**: CI check asserts all tenant-bearing tables have RLS policies *(assert-rls.sh: 01-01; wired into GitHub Actions: 01-04)*
 
@@ -102,9 +102,9 @@
 |-------------|-------|------------|--------|
 | INFRA-01 | Phase 1 | Database Foundation | Pending |
 | INFRA-02 | Phase 1 | Database Foundation | Pending |
-| INFRA-03 | Phase 1 | Database Foundation | Pending |
-| INFRA-04 | Phase 1 | Database Foundation | Pending |
-| INFRA-05 | Phase 1 | Database Foundation | Pending |
+| INFRA-03 | Phase 1 | Database Foundation | Complete (01-02) |
+| INFRA-04 | Phase 1 | Database Foundation | Complete (01-02) |
+| INFRA-05 | Phase 1 | Database Foundation | Complete (01-02) |
 | INFRA-06 | Phase 1 | Database Foundation | Pending |
 | INFRA-07 | Phase 1 | Database Foundation | Pending |
 | TENANT-01 | Phase 2 | Tenant Management + MCP Shell | Pending |

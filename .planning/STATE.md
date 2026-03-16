@@ -3,14 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 1 — Database Foundation
-current_plan: 01-02
+current_plan: 01-03 (ready to execute)
 status: In progress
-last_updated: "2026-03-16T08:14:00.000Z"
+stopped_at: Completed 01-02-PLAN.md — SQL migrations + postgres.js client done
+last_updated: "2026-03-16T08:19:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
+  percent: 50
 ---
 
 # STATE: PB MCP
@@ -31,18 +33,18 @@ progress:
 ## Current Position
 
 **Current Phase:** 1 — Database Foundation
-**Current Plan:** 01-02 (ready to execute)
-**Status:** In progress — plan 01-01 complete
+**Current Plan:** 01-03 (ready to execute)
+**Status:** In progress — plan 01-02 complete
 
 **Progress:**
 ```
-Phase 1 [##        ] 25%  Database Foundation (1/4 plans done)
+Phase 1 [████      ] 50%  Database Foundation (2/4 plans done)
 Phase 2 [          ] 0%   Tenant Management + MCP Shell
 Phase 3 [          ] 0%   ERP Domain Tools
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 0/4 phases complete (1/16 total plans)
+**Overall:** 0/4 phases complete (2/16 total plans)
 
 ---
 
@@ -50,7 +52,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | In progress (1/4 plans) |
+| 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | In progress (2/4 plans) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | Not started |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Not started |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
@@ -59,14 +61,15 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 ## Performance Metrics
 
-**Plans executed:** 1
-**Plans passed verification:** 1
+**Plans executed:** 2
+**Plans passed verification:** 2
 **Plans failed verification:** 0
-**Requirements completed:** 2/40 (INFRA-01, INFRA-07)
+**Requirements completed:** 5/40 (INFRA-01, INFRA-07, INFRA-03, INFRA-04, INFRA-05)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
 | 01-01 | 8min | 2 | 16 | 2026-03-16 |
+| 01-02 | 4min | 2 | 7 | 2026-03-16 |
 
 ---
 
@@ -86,6 +89,9 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **golang-migrate:** Static binary, not an npm package — npm scripts are wrappers only
 - **Test stubs:** Use `it.todo()` (not empty `it()` bodies) so vitest exits 0 before DB infrastructure exists
 - **Dual database URLs:** `DATABASE_URL` (app_login, non-superuser, RLS enforced) vs `DATABASE_MIGRATION_URL` (postgres, DDL privileges)
+- **RLS pattern:** ENABLE+FORCE ROW LEVEL SECURITY on all tenant-bearing tables; `current_setting('app.current_tenant_id', true)::uuid` in policy (null-safe — returns zero rows, not error, when unset)
+- **tenants table:** No RLS — it IS the tenant registry itself, not a tenant-bearing table
+- **postgres.js TransactionSql:** Cast `tx as unknown as postgres.Sql` to access template-tag call signature in strict TypeScript (safe — runtime behavior unchanged)
 
 ### Critical Pitfalls (must not skip)
 
@@ -129,10 +135,10 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T08:14:00.000Z
-**Stopped at:** Completed 01-01-PLAN.md — project scaffold + test stubs done
-**Next action:** Run plan 01-02 (SQL migrations: roles, tenants, ERP tables, RLS policies)
+**Last session:** 2026-03-16T08:19:00.000Z
+**Stopped at:** Completed 01-02-PLAN.md — SQL migrations (roles, tenants, api_keys with RLS) + postgres.js client done
+**Next action:** Run plan 01-03 (RLS integration tests — fill in test stubs with real DB queries)
 
 ---
 *State initialized: 2026-03-07*
-*Last updated: 2026-03-16 after plan 01-01 execution*
+*Last updated: 2026-03-16 after plan 01-02 execution*
