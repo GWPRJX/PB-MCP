@@ -60,7 +60,7 @@ patterns-established:
   - "Test seed/cleanup uses DATABASE_MIGRATION_URL with fixed UUIDs for determinism"
   - "check-pending.ts uses MIGRATION_ALERT=true gate to avoid DB connections on every cold start"
 
-requirements-completed: [INFRA-02, INFRA-03, INFRA-04, INFRA-06]
+requirements-completed: [INFRA-03, INFRA-04, INFRA-06]
 
 # Metrics
 duration: 6min

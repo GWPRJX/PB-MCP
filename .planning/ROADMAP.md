@@ -91,7 +91,7 @@ Plans:
 | Requirement | Phase |
 |-------------|-------|
 | INFRA-01 | Phase 1 |
-| INFRA-02 | Phase 1 |
+| INFRA-02 | Phase 2 |
 | INFRA-03 | Phase 1 |
 | INFRA-04 | Phase 1 |
 | INFRA-05 | Phase 1 |
