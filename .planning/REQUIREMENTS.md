@@ -7,13 +7,13 @@
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: System runs as a single Node.js (TypeScript) process with Fastify 5
+- [x] **INFRA-01**: System runs as a single Node.js (TypeScript) process with Fastify 5 *(scaffold: 01-01; full implementation: Phase 2)*
 - [ ] **INFRA-02**: MCP server uses Streamable HTTP transport (not stdio)
 - [ ] **INFRA-03**: PostgreSQL with Row-Level Security (RLS) isolates all tenant data in a shared schema
 - [ ] **INFRA-04**: Every tenant-bearing table has both `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`
 - [ ] **INFRA-05**: Application uses a dedicated non-superuser PostgreSQL role (no BYPASSRLS)
 - [ ] **INFRA-06**: stderr-only logging (no stdout writes that corrupt MCP transport)
-- [ ] **INFRA-07**: CI check asserts all tenant-bearing tables have RLS policies
+- [x] **INFRA-07**: CI check asserts all tenant-bearing tables have RLS policies *(assert-rls.sh: 01-01; wired into GitHub Actions: 01-04)*
 
 ### Tenant Management
 

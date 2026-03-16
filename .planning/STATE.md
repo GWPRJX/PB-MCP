@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 1 — Database Foundation
-current_plan: None (planning not yet started)
-status: Not started
-last_updated: "2026-03-07T20:12:49.986Z"
+current_plan: 01-02
+status: In progress
+last_updated: "2026-03-16T08:14:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 1
 ---
 
 # STATE: PB MCP
@@ -31,18 +31,18 @@ progress:
 ## Current Position
 
 **Current Phase:** 1 — Database Foundation
-**Current Plan:** 01-01 (ready to execute)
-**Status:** Planned — ready to execute
+**Current Plan:** 01-02 (ready to execute)
+**Status:** In progress — plan 01-01 complete
 
 **Progress:**
 ```
-Phase 1 [          ] 0%   Database Foundation
+Phase 1 [##        ] 25%  Database Foundation (1/4 plans done)
 Phase 2 [          ] 0%   Tenant Management + MCP Shell
 Phase 3 [          ] 0%   ERP Domain Tools
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 0/4 phases complete
+**Overall:** 0/4 phases complete (1/16 total plans)
 
 ---
 
@@ -50,7 +50,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Not started |
+| 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | In progress (1/4 plans) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 (7) | Not started |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Not started |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
@@ -59,10 +59,14 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 ## Performance Metrics
 
-**Plans executed:** 0
-**Plans passed verification:** 0
+**Plans executed:** 1
+**Plans passed verification:** 1
 **Plans failed verification:** 0
-**Requirements completed:** 0/40
+**Requirements completed:** 2/40 (INFRA-01, INFRA-07)
+
+| Plan | Duration | Tasks | Files | Completed |
+|------|----------|-------|-------|-----------|
+| 01-01 | 8min | 2 | 16 | 2026-03-16 |
 
 ---
 
@@ -79,6 +83,9 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **Admin UI:** Scalar auto-generated from OpenAPI schema (no custom frontend)
 - **Write tools:** Deferred to v2 — all Phase 3 tools are read-only
 - **OAuth 2.1:** Deferred to v2
+- **golang-migrate:** Static binary, not an npm package — npm scripts are wrappers only
+- **Test stubs:** Use `it.todo()` (not empty `it()` bodies) so vitest exits 0 before DB infrastructure exists
+- **Dual database URLs:** `DATABASE_URL` (app_login, non-superuser, RLS enforced) vs `DATABASE_MIGRATION_URL` (postgres, DDL privileges)
 
 ### Critical Pitfalls (must not skip)
 
@@ -122,9 +129,10 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-07T20:12:49.984Z
-**Next action:** Run `/gsd:execute-phase 1` to execute Phase 1 (Database Foundation) — 4 plans ready
+**Last session:** 2026-03-16T08:14:00.000Z
+**Stopped at:** Completed 01-01-PLAN.md — project scaffold + test stubs done
+**Next action:** Run plan 01-02 (SQL migrations: roles, tenants, ERP tables, RLS policies)
 
 ---
 *State initialized: 2026-03-07*
-*Last updated: 2026-03-07 after roadmap creation*
+*Last updated: 2026-03-16 after plan 01-01 execution*
