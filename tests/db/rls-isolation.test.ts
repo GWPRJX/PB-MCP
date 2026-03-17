@@ -17,10 +17,14 @@ const CONTACT_A_ID = 'aaaa0003-0000-0000-0000-000000000000';
 
 let migrationSql: ReturnType<typeof postgres>;
 let appSql: ReturnType<typeof postgres>;
+// Separate pool for no-context tests — never had set_config called on its connections,
+// so current_setting('app.current_tenant_id', true) reliably returns null (not "").
+let noContextSql: ReturnType<typeof postgres>;
 
 beforeAll(async () => {
   migrationSql = postgres(process.env.DATABASE_MIGRATION_URL!);
   appSql = postgres(process.env.DATABASE_URL!);
+  noContextSql = postgres(process.env.DATABASE_URL!);
 
   // Clean up any leftover rows from a previous aborted run
   await migrationSql`DELETE FROM products WHERE id IN (${PRODUCT_A_ID}::uuid, ${PRODUCT_B_ID}::uuid)`;
@@ -70,6 +74,7 @@ afterAll(async () => {
 
   await migrationSql.end();
   await appSql.end();
+  await noContextSql.end();
 });
 
 describe('RLS cross-tenant isolation (INFRA-03)', () => {
@@ -108,18 +113,20 @@ describe('RLS cross-tenant isolation (INFRA-03)', () => {
   });
 
   it('No context set returns zero rows from products (not an error)', async () => {
-    // No set_config call — current_setting returns NULL, policy evaluates to false
-    const rows = await appSql`SELECT sku FROM products WHERE TRUE`;
+    // Use noContextSql — a fresh pool whose connections never had set_config called on them.
+    // Reusing appSql would fail because prior transactions leave app.current_tenant_id=""
+    // on returned connections, causing the ::uuid cast in the RLS policy to throw.
+    const rows = await noContextSql`SELECT sku FROM products WHERE TRUE`;
     expect(rows).toHaveLength(0);
   });
 
   it('No context set returns zero rows from orders', async () => {
-    const rows = await appSql`SELECT id FROM orders WHERE TRUE`;
+    const rows = await noContextSql`SELECT id FROM orders WHERE TRUE`;
     expect(rows).toHaveLength(0);
   });
 
   it('No context set returns zero rows from contacts', async () => {
-    const rows = await appSql`SELECT id FROM contacts WHERE TRUE`;
+    const rows = await noContextSql`SELECT id FROM contacts WHERE TRUE`;
     expect(rows).toHaveLength(0);
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import postgres from 'postgres';
 
 // These tests connect as app_login (DATABASE_URL) to verify the role is non-superuser
@@ -6,8 +6,33 @@ import postgres from 'postgres';
 
 let sql: ReturnType<typeof postgres>;
 
+beforeAll(async () => {
+  const migSql = postgres(process.env.DATABASE_MIGRATION_URL ?? 'postgres://postgres:postgres@localhost:5432/pb_mcp');
+  try {
+    // Drop any leftover test table from a previous aborted run so the CREATE TABLE test
+    // fails with 42501 (permission denied) and not 42P07 (duplicate_table).
+    await migSql`DROP TABLE IF EXISTS test_ddl_rejected`;
+
+    // On some PostgreSQL versions the public schema grants CREATE to PUBLIC by default.
+    // Revoke it for the duration of the test suite so app_login truly cannot run DDL.
+    await migSql`REVOKE CREATE ON SCHEMA public FROM PUBLIC`;
+  } finally {
+    await migSql.end();
+  }
+});
+
 afterAll(async () => {
   if (sql) await sql.end();
+
+  // Restore the public CREATE grant so other tools/migrations are not affected.
+  const migSql = postgres(process.env.DATABASE_MIGRATION_URL ?? 'postgres://postgres:postgres@localhost:5432/pb_mcp');
+  try {
+    await migSql`GRANT CREATE ON SCHEMA public TO PUBLIC`;
+    // Clean up any table that the DDL test may have created if the REVOKE arrived late.
+    await migSql`DROP TABLE IF EXISTS test_ddl_rejected`;
+  } finally {
+    await migSql.end();
+  }
 });
 
 describe('App role is non-superuser with no BYPASSRLS (INFRA-05)', () => {
