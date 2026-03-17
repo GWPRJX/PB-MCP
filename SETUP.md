@@ -81,48 +81,72 @@ The database name can be anything — just use it consistently in the `.env` fil
 
 ## Step 4 — Create the .env file
 
+The repo contains `.env.example` but not `.env`. The `.env` file holds real secrets and is intentionally excluded from git — it must never be committed.
+
 Copy the example and fill in real values:
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and set:
+Open `.env`. Here is what each line means and what to change:
 
 ```env
-# Application connection — non-superuser role (created by migration 000001)
-# Format: postgres://USERNAME:PASSWORD@HOST:PORT/DBNAME
+# ── DATABASE ──────────────────────────────────────────────────────────────────
+
+# Application connection — used by the running server for all ERP queries.
+# Username is always app_login (created by migration 000001).
+# Change the password to something strong — must match what you set in Step 5.
 DATABASE_URL=postgres://app_login:CHOOSE_A_STRONG_PASSWORD@localhost:5432/pb_mcp
 
-# Migration connection — PostgreSQL superuser
-# This is used only for: running migrations, admin key lookups, listTenants queries
+# Migration connection — PostgreSQL superuser.
+# Used for: running migrations, API key auth lookups, admin tenant list queries.
+# Change YOUR_POSTGRES_PASSWORD to your actual postgres superuser password.
+# WARNING: never commit this file or share this password.
 DATABASE_MIGRATION_URL=postgres://postgres:YOUR_POSTGRES_PASSWORD@localhost:5432/pb_mcp
 
-# Startup warning if unapplied migrations exist
+# Warns on startup if unapplied migrations exist. Leave as true.
 MIGRATION_ALERT=true
 
-# Node environment
-NODE_ENV=production
+# ── SERVER ────────────────────────────────────────────────────────────────────
 
-# Port the HTTP server listens on
-PORT=3000
+NODE_ENV=production   # use "development" for local dev (enables more verbose errors)
+PORT=3000             # change if 3000 is already in use on your server
 
-# Secret for the admin REST API — generate a strong random string (minimum 32 chars)
-# Example: openssl rand -hex 32
+# Admin API secret — protects all /admin/* endpoints.
+# Generate with: openssl rand -hex 32
+# Treat this like a root password — keep it out of logs and chat history.
 ADMIN_SECRET=CHANGE_THIS_TO_A_STRONG_RANDOM_SECRET
 
-# YouTrack KB sync (optional — server starts fine without these)
-YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
-YOUTRACK_TOKEN=perm-your-permanent-token-here
+# ── YOUTRACK KB SYNC (optional) ───────────────────────────────────────────────
+
+# The server starts fine without these. KB tools return empty results until
+# a sync has run. Once set, the server syncs automatically on startup and
+# every KB_SYNC_INTERVAL_MS milliseconds after that.
+
+# Your YouTrack instance URL (no trailing slash)
+YOUTRACK_BASE_URL=https://support.posibolt.com
+
+# Permanent token from YouTrack → Profile → Hub → Authentication → New token
+# Needs at least Read access to Articles in the target project.
+YOUTRACK_TOKEN=perm-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# YouTrack project shortName to sync (P8 = POSibolt V8)
 YOUTRACK_PROJECT=P8
+
+# How often to auto-sync in milliseconds. 1800000 = 30 minutes.
 KB_SYNC_INTERVAL_MS=1800000
 ```
 
-**Important notes:**
-- `DATABASE_URL` uses `app_login` — this role is created by the first migration and has no superuser privileges. The server uses this for all ERP queries.
-- `DATABASE_MIGRATION_URL` uses `postgres` (or any superuser). The server uses this briefly for auth key lookups and admin aggregate queries. Never share this password publicly.
-- `ADMIN_SECRET` protects the `/admin/*` endpoints. Treat it like a root password.
-- YouTrack variables are optional. Without them the server starts normally and KB tools still work (they just return empty results until a sync runs).
+### What each secret is used for at runtime
+
+| Variable | Used by | If missing |
+|----------|---------|-----------|
+| `DATABASE_URL` | Every ERP tool query, MCP auth | Server exits immediately |
+| `DATABASE_MIGRATION_URL` | Migrations, auth key lookups, admin tenant list | Server exits; auth lookups return 401 |
+| `ADMIN_SECRET` | `POST/GET/DELETE /admin/*` routes | Server exits immediately |
+| `YOUTRACK_TOKEN` | KB sync worker | Sync skips with a warning; server still starts |
+| `YOUTRACK_BASE_URL` | KB sync worker | Same as above |
 
 ---
 
