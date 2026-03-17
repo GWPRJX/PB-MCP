@@ -3,6 +3,7 @@ import { buildServer } from './server.js';
 import { createMcpServer } from './mcp/server.js';
 import { extractAndValidateApiKey } from './mcp/auth.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { startKbScheduler } from './kb/scheduler.js';
 
 // Validate required environment variables before starting
 if (!process.env.DATABASE_URL) {
@@ -66,6 +67,10 @@ async function main(): Promise<void> {
       reply.hijack();
     });
   });
+
+  if (process.env.NODE_ENV !== 'test') {
+    startKbScheduler();
+  }
 
   // Start listening
   const address = await server.listen({ port: PORT, host: '0.0.0.0' });

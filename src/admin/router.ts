@@ -6,6 +6,7 @@ import {
   createApiKey,
   revokeApiKey,
 } from './tenant-service.js';
+import { syncKbArticles } from '../kb/sync.js';
 
 // Admin auth check — all routes in this plugin require X-Admin-Secret header
 async function checkAdminAuth(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -212,5 +213,27 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
       return reply.status(404).send({ error: 'API key not found or already revoked' });
     }
     return reply.status(204).send();
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // POST /admin/kb/refresh — trigger immediate KB re-sync
+  // ──────────────────────────────────────────────────────────────
+  server.post('/kb/refresh', {
+    schema: {
+      summary: 'Trigger immediate KB re-sync from YouTrack',
+      description: 'Immediately fetches all articles from YouTrack and replaces the kb_articles cache atomically.',
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            synced: { type: 'boolean' },
+            article_count: { type: 'number' },
+          },
+        },
+      },
+    },
+  }, async (_request, reply) => {
+    const result = await syncKbArticles();
+    return reply.status(200).send({ synced: true, article_count: result.article_count });
   });
 }
