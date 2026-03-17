@@ -65,7 +65,13 @@ Plans:
   3. AI client can ask "look up customer Jane Smith" and receive contact detail, order history, and outstanding invoice balance in separate tool calls — all scoped to the authenticated tenant's data
   4. All 18 tools enforce tenant isolation: a query run with Tenant A's API key never returns data belonging to Tenant B
   5. All list tools support pagination (limit + cursor) and return total_count; all tools return structured error responses with error code and field on invalid input
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Schema extension + test stubs (Wave 1)
+- [ ] 03-02-PLAN.md — Inventory tools + tests — 7 tools (Wave 2)
+- [ ] 03-03-PLAN.md — Orders + CRM tools + tests — 11 tools (Wave 3)
+- [ ] 03-04-PLAN.md — Server wiring + DB test fixes + human checkpoint (Wave 4)
 
 ### Phase 4: YouTrack KB Sync
 **Goal**: AI clients can search live YouTrack API documentation, and the sync worker keeps the local cache current automatically
