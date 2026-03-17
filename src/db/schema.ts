@@ -128,3 +128,19 @@ export const invoices = pgTable('invoices', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// KB articles cache (Phase 4) — GLOBAL, no tenant_id, no RLS
+// Mirrors migration 000005_create_kb_articles.up.sql exactly.
+// All tenants share this YouTrack documentation cache.
+// ---------------------------------------------------------------------------
+
+export const kbArticles = pgTable('kb_articles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  youtrackId: text('youtrack_id').notNull().unique(),  // idReadable e.g. "P8-A-7"
+  summary: text('summary').notNull(),                  // article title/summary
+  content: text('content'),                            // Markdown body (nullable)
+  tags: text('tags').array().notNull().default([]),    // YouTrack tags
+  syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  contentHash: text('content_hash'),                   // SHA-256 of content (nullable)
+});
