@@ -13,7 +13,7 @@
 - [x] **Phase 1: Database Foundation** - PostgreSQL schema with RLS enforcing tenant isolation; CI-verified cross-tenant data separation before any application layer is built
 - [x] **Phase 2: Tenant Management + MCP Shell** - Admin REST API for tenant provisioning, API key management, and the MCP server transport layer with per-request tenant auth middleware
 - [x] **Phase 3: ERP Domain Tools** - All read-only MCP tools for Inventory, Orders/Billing, and CRM giving AI clients full query access to tenant ERP data
-- [ ] **Phase 4: YouTrack KB Sync** - YouTrack article cache, scheduled sync, and KB query tools so AI clients can search live API documentation
+- [x] **Phase 4: YouTrack KB Sync** - YouTrack article cache, scheduled sync, and KB query tools so AI clients can search live API documentation
 
 ---
 
@@ -86,10 +86,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Schema extension (kbArticles) + test stubs (Wave 1)
-- [ ] 04-02-PLAN.md — Sync worker + scheduler + sync tests (Wave 2)
-- [ ] 04-03-PLAN.md — KB MCP tools + admin refresh endpoint + server wiring (Wave 3)
-- [ ] 04-04-PLAN.md — Full test suite + human verification checkpoint (Wave 4)
+- [x] 04-01-PLAN.md — Schema extension (kbArticles) + test stubs (Wave 1) — completed 2026-03-17
+- [x] 04-02-PLAN.md — Sync worker + scheduler + sync tests (Wave 2) — completed 2026-03-17
+- [x] 04-03-PLAN.md — KB MCP tools + admin refresh endpoint + server wiring (Wave 3) — completed 2026-03-17
+- [x] 04-04-PLAN.md — Full test suite + human verification checkpoint (Wave 4) — completed 2026-03-17
 
 ---
 
@@ -100,7 +100,7 @@ Plans:
 | 1. Database Foundation | 4/4 | Complete | 2026-03-16 |
 | 2. Tenant Management + MCP Shell | 4/4 | Complete | 2026-03-16 |
 | 3. ERP Domain Tools | 4/4 | Complete | 2026-03-17 |
-| 4. YouTrack KB Sync | 0/4 | Planned | - |
+| 4. YouTrack KB Sync | 4/4 | Complete | 2026-03-17 |
 
 ---
 
@@ -178,3 +178,4 @@ Plans:
 *Updated: 2026-03-17 — Phase 3 planned: 4 plans across 4 waves covering INV-01 through CRM-05 (18 tools)*
 *Updated: 2026-03-17 — Phase 3 complete: Plan 03-04 done (18 ERP tools wired + 94/94 tests green — human checkpoint approved)*
 *Updated: 2026-03-17 — Phase 4 planned: 4 plans across 4 waves covering KB-01 through KB-07 (KB-08 deferred)*
+*Updated: 2026-03-17 — Phase 4 complete: 107/107 tests green, 21 MCP tools live, human checkpoint approved — v1.0 milestone complete*
