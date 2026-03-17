@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 4
-current_plan: Not started
-status: planning
-stopped_at: Phase 3 complete — human checkpoint approved 2026-03-17
-last_updated: "2026-03-17T00:00:00.000Z"
+current_plan: 04-01 complete
+status: in_progress
+stopped_at: "04-01 complete — kbArticles schema + test stubs 2026-03-17"
+last_updated: "2026-03-17T12:08:48Z"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 16
+  completed_plans: 13
 ---
 
 # STATE: PB MCP
@@ -32,8 +32,8 @@ progress:
 ## Current Position
 
 **Current Phase:** 4
-**Current Plan:** Not started
-**Status:** Ready to plan
+**Current Plan:** 04-01 complete
+**Status:** In progress
 
 **Progress:**
 ```
@@ -41,10 +41,10 @@ progress:
 Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified 2026-03-16)
 Phase 2 [██████████] 100% Tenant Management + MCP Shell (4/4 plans done — human-verified 2026-03-16)
 Phase 3 [██████████] 100% ERP Domain Tools (4/4 plans done — human-verified 2026-03-17)
-Phase 4 [          ] 0%   YouTrack KB Sync
+Phase 4 [██        ] 25%  YouTrack KB Sync (1/4 plans complete)
 ```
 
-**Overall:** 3/4 phases complete (12/12 plans in first 3 phases)
+**Overall:** 3/4 phases complete (13/16 plans total)
 
 ---
 
@@ -55,16 +55,16 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 + INFRA-02 (8) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Complete (4/4 plans — human-verified 2026-03-17) |
-| 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
+| 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | In progress (1/4 plans — 04-01 complete 2026-03-17) |
 
 ---
 
 ## Performance Metrics
 
-**Plans executed:** 12
-**Plans passed verification:** 12
+**Plans executed:** 13
+**Plans passed verification:** 13
 **Plans failed verification:** 0
-**Requirements completed:** 37/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; ORD-01 through ORD-06 complete; CRM-01 through CRM-05 complete; all Phase 1+2+3 requirements verified end-to-end)
+**Requirements completed:** 37/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; ORD-01 through ORD-06 complete; CRM-01 through CRM-05 complete; all Phase 1+2+3 requirements verified end-to-end; KB schema foundation added Phase 4)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
@@ -80,6 +80,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | 03-02 | 10min | 2 | 3 | 2026-03-17 |
 | 03-03 | 15min | 2 | 4 | 2026-03-17 |
 | 03-04 | 30min | 4 | 11 | 2026-03-17 |
+| 04-01 | 2min | 2 | 2 | 2026-03-17 |
 
 ## Accumulated Context
 
@@ -145,13 +146,25 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | 2 | Streamable HTTP URL: single `/mcp` endpoint vs per-tenant `/{slug}/mcp` | Phase 2 planning |
 | 3 | Tax calculation scope: fixed rate per tenant vs per-line-item configurable | Phase 3 planning |
 | 4 | PgBouncer in v1 or plain postgres.js pool? | Phase 1 planning (document either way) |
-| 5 | YouTrack sandbox access: real instance or mock? | Phase 4 planning |
-| 6 | KB-08 self-configuration: deliver in Phase 4 or defer within phase? | Phase 4 planning |
+| 5 | YouTrack sandbox access: real instance or mock? | Phase 4 planning — RESOLVED: real instance at https://support.posibolt.com/ |
+| 6 | KB-08 self-configuration: deliver in Phase 4 or defer within phase? | Phase 4 planning — RESOLVED: defer within phase (Very High complexity; criterion 5 in ROADMAP.md explicitly allows deferral) |
+
+### YouTrack Instance Details (Phase 4)
+
+- **Base URL:** https://support.posibolt.com/
+- **Token:** stored in `.env` as `YOUTRACK_TOKEN` (never committed to git)
+- **Project:** POSibolt V8 (shortName: P8, id: 0-17)
+- **Root article:** P8-A-7 — "POSibolt REST-API" (parent=null, root-level)
+- **Article count:** 50 articles total in P8 project (fits in single $top=100 request; $skip=100 returns empty)
+- **Content format:** Markdown — headers, tables, code blocks, links
+- **Hierarchy:** parent-child via `parentArticle` field — 15 direct children of P8-A-7, several with their own children
+- **Key fields:** id, idReadable, summary, content, created, updated, tags, parentArticle
+- **Query pattern:** `GET /api/articles?fields=...&query=project:P8&$top=100`
+- **YOUTRACK API folder:** user-added subfolder with MD files of API docs (sync should include these)
 
 ### Research Flags
 
-- Phase 3: Consider `/gsd:research-phase` for invoice tax calculation and order state machine edge cases
-- Phase 4: Consider `/gsd:research-phase` for YouTrack pagination edge cases and article content format variability
+- Phase 4 research NOT needed — YouTrack structure confirmed from live instance exploration
 
 ---
 
@@ -159,7 +172,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 - [x] Decide tool naming convention — resolved: flat naming (list_products, list_orders, list_contacts)
 - [x] Decide Streamable HTTP URL structure — resolved: single /mcp endpoint, per-request stateless transport, X-Api-Key header identifies tenant
-- [ ] Confirm YouTrack sandbox access before Phase 4 planning begins
+- [x] Confirm YouTrack sandbox access — resolved: real instance at https://support.posibolt.com/ (50 articles, project P8)
 
 ---
 
@@ -172,8 +185,8 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-03-17
-**Stopped at:** Phase 3 complete — human checkpoint approved, 18 tools verified live
-**Next action:** Plan Phase 4 — YouTrack KB Sync (8 requirements: KB-01 through KB-08)
+**Stopped at:** 04-01 complete — kbArticles schema added to src/db/schema.ts, kb.test.ts stubs created
+**Next action:** Execute 04-02 — SQL migration 000005_create_kb_articles + YouTrack sync service
 
 ---
 *State initialized: 2026-03-07*
