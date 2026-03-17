@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 3
-current_plan: Not started
-status: planning
-stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-03-16T12:30:59.832Z"
+current_plan: 03-04 pending-checkpoint
+status: in_progress
+stopped_at: "03-04-PLAN.md Tasks 1-3 complete — 18 tools wired, 94/94 tests green, awaiting human checkpoint"
+last_updated: "2026-03-17T00:00:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 12
+  completed_plans: 10
 ---
 
 # STATE: PB MCP
@@ -32,19 +32,19 @@ progress:
 ## Current Position
 
 **Current Phase:** 3
-**Current Plan:** Not started
-**Status:** Ready to plan
+**Current Plan:** 03-04 pending-checkpoint (Tasks 1-3 complete)
+**Status:** In progress — awaiting human checkpoint
 
 **Progress:**
 ```
 [██████████] 100% (Phase 1+2 complete)
 Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified)
 Phase 2 [██████████] 100% Tenant Management + MCP Shell (4/4 plans done — human-verified)
-Phase 3 [          ] 0%   ERP Domain Tools
+Phase 3 [██████████] 95%  ERP Domain Tools (3/4 plans complete + 03-04 Tasks 1-3 done, pending human verification)
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 2/4 phases complete (8/8 plans in first 2 phases)
+**Overall:** 2/4 phases complete (10/12 plans complete; 03-04 pending checkpoint)
 
 ---
 
@@ -54,17 +54,17 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 |-------|------|--------------|--------|
 | 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 + INFRA-02 (8) | Complete (4/4 plans — human-verified 2026-03-16) |
-| 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Not started |
+| 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | In progress (03-01 through 03-03 complete; 03-04 Tasks 1-3 done, 94/94 tests green, pending human checkpoint) |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
 
 ---
 
 ## Performance Metrics
 
-**Plans executed:** 8
-**Plans passed verification:** 8
+**Plans executed:** 10
+**Plans passed verification:** 10
 **Plans failed verification:** 0
-**Requirements completed:** 29/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; all Phase 1+2 requirements verified end-to-end)
+**Requirements completed:** 36/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; all Phase 1+2 requirements verified end-to-end)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
@@ -76,6 +76,8 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | 02-02 | 10min | 2 | 4 | 2026-03-16 |
 | 02-03 | 7min | 2 | 5 | 2026-03-16 |
 | 02-04 | 25min | 2 | 7 | 2026-03-16 |
+| 03-01 | 5min | 2 | 4 | 2026-03-17 |
+| 03-02 | 10min | 2 | 3 | 2026-03-17 |
 
 ## Accumulated Context
 
@@ -115,6 +117,14 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **MCP auth middleware:** `extractAndValidateApiKey(request, reply, handler)` is sole entry point for tenant context; SHA-256 hashes X-Api-Key header → DB lookup → `tenantStorage.run({ tenantId, keyId }, handler)`; returns 401 JSON-RPC error on missing/invalid/revoked key
 - **SSE GET test approach:** GET /mcp tests use `fetch` + `AbortController` instead of `app.inject()` — inject() hangs waiting for SSE stream to close; fetch can be aborted after headers arrive
 - **Streamable HTTP URL decision:** Single `/mcp` endpoint (POST/GET/DELETE); tenant identified via X-Api-Key header, not URL path — resolved Open Question #2
+- **Tool handler pattern (LOCKED):** All 18 ERP tool handlers: call getTenantId() → withTenantContext(tenantId, async (tx) => { const txSql = tx as unknown as postgres.Sql; ... }) → return toolError/toolSuccess; never throw
+- **Tool test transport pattern (LOCKED):** Integration tests use stateless per-request McpServer + transport with enableJsonResponse: true; register domain tools inside the route handler (not in beforeAll); matches tests/mcp/transport.test.ts
+- **COUNT(*) as string:** postgres.js returns COUNT(*) as string — always parseInt(count, 10) in pagination handlers
+- **ERP migration 000004 applied:** Phase 3 ERP tables (products, stock_levels, suppliers, contacts, orders, order_line_items, invoices) applied to test DB 2026-03-17
+- **createMcpServer() registers all 18 tools:** Wave 4 wiring — server.ts imports and calls registerInventoryTools + registerOrdersTools + registerCrmTools; (server as any).setToolRequestHandlers() hack removed
+- **noContextSql pattern:** Separate postgres.js pool for RLS no-context tests — prevents post-transaction empty-string UUID cast errors in the ::uuid cast of the RLS policy
+- **app-role DDL test setup:** REVOKE CREATE ON SCHEMA public FROM PUBLIC in beforeAll / GRANT back in afterAll — enforces DDL restriction test without permanently changing schema (PostgreSQL default grants CREATE to PUBLIC)
+- **spawnSync timeout 60s:** tsx startup under parallel 12-file test suite load on Windows can exceed 10s; vitest testTimeout also increased to 60s
 
 ### Critical Pitfalls (must not skip)
 
@@ -158,9 +168,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-16T11:00:00Z
-**Stopped at:** Completed 02-04-PLAN.md
-**Next action:** Plan Phase 3 — ERP Domain Tools (18 requirements: INV, ORD, CRM)
+**Last session:** 2026-03-17
+**Stopped at:** 03-04-PLAN.md Tasks 1-3 complete — 18 tools wired in createMcpServer(), 4+5 test failures fixed, 94/94 tests green, awaiting human checkpoint (Task 4)
+**Next action:** Human verifies 18 tools via MCP Inspector/Claude Desktop, then approve checkpoint to complete Phase 3
 
 ---
 *State initialized: 2026-03-07*
