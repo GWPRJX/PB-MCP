@@ -1,7 +1,7 @@
 ---
 phase: 03-erp-domain-tools
 plan: 04
-status: pending-checkpoint
+status: complete
 completed_at: 2026-03-17
 subsystem: mcp-server, integration-tests
 tags: [tool-registration, db-tests, rls, duplicate-registration, test-fixes]

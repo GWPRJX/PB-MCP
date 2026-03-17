@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { buildServer } from './server.js';
 import { createMcpServer } from './mcp/server.js';
 import { extractAndValidateApiKey } from './mcp/auth.js';

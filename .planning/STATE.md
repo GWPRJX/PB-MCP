@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
-current_plan: 03-04 pending-checkpoint
-status: in_progress
-stopped_at: "03-04-PLAN.md Tasks 1-3 complete — 18 tools wired, 94/94 tests green, awaiting human checkpoint"
+current_phase: 4
+current_plan: Not started
+status: planning
+stopped_at: Phase 3 complete — human checkpoint approved 2026-03-17
 last_updated: "2026-03-17T00:00:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 12
 ---
 
 # STATE: PB MCP
@@ -31,20 +31,20 @@ progress:
 
 ## Current Position
 
-**Current Phase:** 3
-**Current Plan:** 03-04 pending-checkpoint (Tasks 1-3 complete)
-**Status:** In progress — awaiting human checkpoint
+**Current Phase:** 4
+**Current Plan:** Not started
+**Status:** Ready to plan
 
 **Progress:**
 ```
-[██████████] 100% (Phase 1+2 complete)
-Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified)
-Phase 2 [██████████] 100% Tenant Management + MCP Shell (4/4 plans done — human-verified)
-Phase 3 [██████████] 95%  ERP Domain Tools (3/4 plans complete + 03-04 Tasks 1-3 done, pending human verification)
+[██████████] 100% (Phase 1+2+3 complete)
+Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified 2026-03-16)
+Phase 2 [██████████] 100% Tenant Management + MCP Shell (4/4 plans done — human-verified 2026-03-16)
+Phase 3 [██████████] 100% ERP Domain Tools (4/4 plans done — human-verified 2026-03-17)
 Phase 4 [          ] 0%   YouTrack KB Sync
 ```
 
-**Overall:** 2/4 phases complete (10/12 plans complete; 03-04 pending checkpoint)
+**Overall:** 3/4 phases complete (12/12 plans in first 3 phases)
 
 ---
 
@@ -54,17 +54,17 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 |-------|------|--------------|--------|
 | 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 + INFRA-02 (8) | Complete (4/4 plans — human-verified 2026-03-16) |
-| 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | In progress (03-01 through 03-03 complete; 03-04 Tasks 1-3 done, 94/94 tests green, pending human checkpoint) |
+| 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Complete (4/4 plans — human-verified 2026-03-17) |
 | 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | Not started |
 
 ---
 
 ## Performance Metrics
 
-**Plans executed:** 10
-**Plans passed verification:** 10
+**Plans executed:** 12
+**Plans passed verification:** 12
 **Plans failed verification:** 0
-**Requirements completed:** 36/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; all Phase 1+2 requirements verified end-to-end)
+**Requirements completed:** 37/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; ORD-01 through ORD-06 complete; CRM-01 through CRM-05 complete; all Phase 1+2+3 requirements verified end-to-end)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
@@ -78,6 +78,8 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 | 02-04 | 25min | 2 | 7 | 2026-03-16 |
 | 03-01 | 5min | 2 | 4 | 2026-03-17 |
 | 03-02 | 10min | 2 | 3 | 2026-03-17 |
+| 03-03 | 15min | 2 | 4 | 2026-03-17 |
+| 03-04 | 30min | 4 | 11 | 2026-03-17 |
 
 ## Accumulated Context
 
@@ -106,6 +108,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 - **CI (INFRA-07):** GitHub Actions with postgres:17-alpine service, golang-migrate v4.19.1 pinned, assert-rls.sh as build gate; DATABASE_MIGRATION_URL (superuser) for migrations, DATABASE_URL (app_login) for vitest
 - **Phase 1 complete:** Schema with RLS verified end-to-end (human checkpoint approved 2026-03-16); CI gate active on all PRs
 - **Phase 2 complete:** Admin REST API + MCP shell verified end-to-end (human checkpoint approved 2026-03-16); MCP Inspector connected, tools/list returns empty array, auth rejection confirmed
+- **Phase 3 complete:** 18 ERP read-only MCP tools verified end-to-end (human checkpoint approved 2026-03-17); tools/list returns 18 tools, 94/94 tests green
 - **Auth lookup RLS bypass:** `lookupApiKeyByHash` uses a short-lived `postgres()` connection via `DATABASE_MIGRATION_URL` (superuser, no RLS) to resolve `key_hash` to `tenant_id` — necessary because `api_keys` RLS hides all rows when `app.current_tenant_id` is unset; this pool is read-only and closed after each call
 - **API key format:** `pb_` + `randomBytes(32).toString('hex')` = 67-char key; SHA-256 hash stored; raw key returned once at creation
 - **TenantService pattern:** All admin DB operations in `src/admin/tenant-service.ts`; route handlers import service functions — no raw SQL in routes
@@ -154,7 +157,7 @@ Phase 4 [          ] 0%   YouTrack KB Sync
 
 ## Todos
 
-- [ ] Decide tool naming convention before Phase 3 planning begins
+- [x] Decide tool naming convention — resolved: flat naming (list_products, list_orders, list_contacts)
 - [x] Decide Streamable HTTP URL structure — resolved: single /mcp endpoint, per-request stateless transport, X-Api-Key header identifies tenant
 - [ ] Confirm YouTrack sandbox access before Phase 4 planning begins
 
@@ -169,8 +172,8 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-03-17
-**Stopped at:** 03-04-PLAN.md Tasks 1-3 complete — 18 tools wired in createMcpServer(), 4+5 test failures fixed, 94/94 tests green, awaiting human checkpoint (Task 4)
-**Next action:** Human verifies 18 tools via MCP Inspector/Claude Desktop, then approve checkpoint to complete Phase 3
+**Stopped at:** Phase 3 complete — human checkpoint approved, 18 tools verified live
+**Next action:** Plan Phase 4 — YouTrack KB Sync (8 requirements: KB-01 through KB-08)
 
 ---
 *State initialized: 2026-03-07*

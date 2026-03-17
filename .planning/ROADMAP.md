@@ -12,7 +12,7 @@
 
 - [x] **Phase 1: Database Foundation** - PostgreSQL schema with RLS enforcing tenant isolation; CI-verified cross-tenant data separation before any application layer is built
 - [x] **Phase 2: Tenant Management + MCP Shell** - Admin REST API for tenant provisioning, API key management, and the MCP server transport layer with per-request tenant auth middleware
-- [ ] **Phase 3: ERP Domain Tools** - All read-only MCP tools for Inventory, Orders/Billing, and CRM giving AI clients full query access to tenant ERP data
+- [x] **Phase 3: ERP Domain Tools** - All read-only MCP tools for Inventory, Orders/Billing, and CRM giving AI clients full query access to tenant ERP data
 - [ ] **Phase 4: YouTrack KB Sync** - YouTrack article cache, scheduled sync, and KB query tools so AI clients can search live API documentation
 
 ---
@@ -68,10 +68,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Schema extension + test stubs (Wave 1)
-- [ ] 03-02-PLAN.md — Inventory tools + tests — 7 tools (Wave 2)
-- [ ] 03-03-PLAN.md — Orders + CRM tools + tests — 11 tools (Wave 3)
-- [ ] 03-04-PLAN.md — Server wiring + DB test fixes + human checkpoint (Wave 4)
+- [x] 03-01-PLAN.md — Schema extension + test stubs (Wave 1) — completed 2026-03-17
+- [x] 03-02-PLAN.md — Inventory tools + tests — 7 tools (Wave 2) — completed 2026-03-17
+- [x] 03-03-PLAN.md — Orders + CRM tools + tests — 11 tools (Wave 3) — completed 2026-03-17
+- [x] 03-04-PLAN.md — Server wiring + DB test fixes + human checkpoint (Wave 4) — completed 2026-03-17
 
 ### Phase 4: YouTrack KB Sync
 **Goal**: AI clients can search live YouTrack API documentation, and the sync worker keeps the local cache current automatically
@@ -93,7 +93,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 4/4 | Complete | 2026-03-16 |
 | 2. Tenant Management + MCP Shell | 4/4 | Complete | 2026-03-16 |
-| 3. ERP Domain Tools | 0/? | Not started | - |
+| 3. ERP Domain Tools | 4/4 | Complete | 2026-03-17 |
 | 4. YouTrack KB Sync | 0/? | Not started | - |
 
 ---
