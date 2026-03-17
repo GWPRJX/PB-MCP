@@ -14,7 +14,9 @@ describe('stderr-only logging — no stdout corruption (INFRA-02 + INFRA-06)', (
     // Unset DATABASE_URL to trigger the early exit path in src/index.ts
     const result = spawnSync('npx', ['tsx', INDEX_PATH], {
       env: { ...process.env, DATABASE_URL: '', ADMIN_SECRET: '' },
-      timeout: 10000,
+      // 60 s: tsx startup is slower when run in parallel with the full test suite
+      // (12 test files loading postgres.js, zod, etc. simultaneously on Windows).
+      timeout: 60000,
       encoding: 'utf8',
       shell: true,
     });
@@ -33,7 +35,7 @@ describe('stderr-only logging — no stdout corruption (INFRA-02 + INFRA-06)', (
     delete env['ADMIN_SECRET'];
     const result = spawnSync('npx', ['tsx', INDEX_PATH], {
       env,
-      timeout: 10000,
+      timeout: 30000,
       encoding: 'utf8',
       shell: true,
     });

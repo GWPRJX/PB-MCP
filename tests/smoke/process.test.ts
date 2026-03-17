@@ -10,7 +10,9 @@ function spawnIndex(env: NodeJS.ProcessEnv): ReturnType<typeof spawnSync> {
   // Quote the path to handle spaces (e.g., "PB MCP" directory)
   return spawnSync('npx', ['tsx', `"${indexPath}"`], {
     env,
-    timeout: 10000,
+    // 60 s: tsx startup is slower when run in parallel with the full test suite
+    // (12 test files loading postgres.js, zod, etc. simultaneously on Windows).
+    timeout: 60000,
     encoding: 'utf8',
     shell: true,
   });

@@ -10,7 +10,7 @@ export default defineConfig({
       DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://app_login:changeme@localhost:5432/pb_mcp',
       DATABASE_MIGRATION_URL: process.env.DATABASE_MIGRATION_URL ?? 'postgres://postgres:postgres@localhost:5432/pb_mcp',
     },
-    // Increase timeout for DB integration tests
-    testTimeout: 30000,
+    // Increase timeout for DB integration tests and smoke tests (tsx spawn under parallel load)
+    testTimeout: 60000,
   },
 });
