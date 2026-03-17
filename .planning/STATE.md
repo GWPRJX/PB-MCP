@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 4
-current_plan: 04-01 complete
+current_plan: 04-02 complete
 status: in_progress
-stopped_at: "04-01 complete — kbArticles schema + test stubs 2026-03-17"
-last_updated: "2026-03-17T12:08:48Z"
+stopped_at: "04-02 complete — syncKbArticles() + startKbScheduler() + 4 tests green 2026-03-17"
+last_updated: "2026-03-17T14:19:00Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # STATE: PB MCP
@@ -32,7 +32,7 @@ progress:
 ## Current Position
 
 **Current Phase:** 4
-**Current Plan:** 04-01 complete
+**Current Plan:** 04-02 complete
 **Status:** In progress
 
 **Progress:**
@@ -41,10 +41,10 @@ progress:
 Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified 2026-03-16)
 Phase 2 [██████████] 100% Tenant Management + MCP Shell (4/4 plans done — human-verified 2026-03-16)
 Phase 3 [██████████] 100% ERP Domain Tools (4/4 plans done — human-verified 2026-03-17)
-Phase 4 [██        ] 25%  YouTrack KB Sync (1/4 plans complete)
+Phase 4 [████      ] 50%  YouTrack KB Sync (2/4 plans complete)
 ```
 
-**Overall:** 3/4 phases complete (13/16 plans total)
+**Overall:** 3/4 phases complete (14/16 plans total)
 
 ---
 
@@ -55,16 +55,16 @@ Phase 4 [██        ] 25%  YouTrack KB Sync (1/4 plans complete)
 | 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 + INFRA-02 (8) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Complete (4/4 plans — human-verified 2026-03-17) |
-| 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | In progress (1/4 plans — 04-01 complete 2026-03-17) |
+| 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | In progress (2/4 plans — 04-02 complete 2026-03-17) |
 
 ---
 
 ## Performance Metrics
 
-**Plans executed:** 13
-**Plans passed verification:** 13
+**Plans executed:** 14
+**Plans passed verification:** 14
 **Plans failed verification:** 0
-**Requirements completed:** 37/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; ORD-01 through ORD-06 complete; CRM-01 through CRM-05 complete; all Phase 1+2+3 requirements verified end-to-end; KB schema foundation added Phase 4)
+**Requirements completed:** 37/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; ORD-01 through ORD-06 complete; CRM-01 through CRM-05 complete; all Phase 1+2+3 requirements verified end-to-end; KB schema foundation added Phase 4; KB-01 through KB-03 + KB-07 implemented by sync worker)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
@@ -81,6 +81,7 @@ Phase 4 [██        ] 25%  YouTrack KB Sync (1/4 plans complete)
 | 03-03 | 15min | 2 | 4 | 2026-03-17 |
 | 03-04 | 30min | 4 | 11 | 2026-03-17 |
 | 04-01 | 2min | 2 | 2 | 2026-03-17 |
+| 04-02 | 7min | 2 | 3 | 2026-03-17 |
 
 ## Accumulated Context
 
@@ -104,6 +105,7 @@ Phase 4 [██        ] 25%  YouTrack KB Sync (1/4 plans complete)
 - **Scoped uniqueness:** UNIQUE(tenant_id, sku) and UNIQUE(tenant_id, email) — NOT global — prevents cross-tenant uniqueness leaks via constraint errors
 - **order_line_items:** No updated_at column — financial line items are append-only records
 - **kb_articles:** Global cache, no tenant_id, no RLS — locked decision from Phase 1 context; all tenants share YouTrack article data
+- **syncKbArticles() tags/date serialization:** tags cast as ::text[] literal string, synced_at as .toISOString()::timestamptz inside cast TransactionSql — avoids cross-connection postgres.js helper serialization conflict
 - **tsconfig.test.json:** Separate tsconfig extending main to include tests/** with rootDir=. for tsc --noEmit; main tsconfig rootDir=src excludes test files
 - **check-pending.ts:** Startup migration alert using MIGRATION_ALERT=true gate; compares .up.sql file count vs schema_migrations version; all output via process.stderr.write
 - **CI (INFRA-07):** GitHub Actions with postgres:17-alpine service, golang-migrate v4.19.1 pinned, assert-rls.sh as build gate; DATABASE_MIGRATION_URL (superuser) for migrations, DATABASE_URL (app_login) for vitest
@@ -185,8 +187,8 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-03-17
-**Stopped at:** 04-01 complete — kbArticles schema added to src/db/schema.ts, kb.test.ts stubs created
-**Next action:** Execute 04-02 — SQL migration 000005_create_kb_articles + YouTrack sync service
+**Stopped at:** 04-02 complete — syncKbArticles() + startKbScheduler() + 4 integration tests green
+**Next action:** Execute 04-03 — KB MCP tools (search_kb, get_kb_article, get_kb_sync_status)
 
 ---
 *State initialized: 2026-03-07*
