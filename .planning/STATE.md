@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 4
-current_plan: 04-02 complete
+current_plan: 04-03 complete
 status: in_progress
-stopped_at: "04-02 complete — syncKbArticles() + startKbScheduler() + 4 tests green 2026-03-17"
-last_updated: "2026-03-17T14:19:00Z"
+stopped_at: "04-03 complete — registerKbTools() 3 tools + POST /admin/kb/refresh + 9 tests green 2026-03-17"
+last_updated: "2026-03-17T14:30:00Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # STATE: PB MCP
@@ -41,10 +41,10 @@ progress:
 Phase 1 [██████████] 100% Database Foundation (4/4 plans done — human-verified 2026-03-16)
 Phase 2 [██████████] 100% Tenant Management + MCP Shell (4/4 plans done — human-verified 2026-03-16)
 Phase 3 [██████████] 100% ERP Domain Tools (4/4 plans done — human-verified 2026-03-17)
-Phase 4 [████      ] 50%  YouTrack KB Sync (2/4 plans complete)
+Phase 4 [██████    ] 75%  YouTrack KB Sync (3/4 plans complete)
 ```
 
-**Overall:** 3/4 phases complete (14/16 plans total)
+**Overall:** 3/4 phases complete (15/16 plans total)
 
 ---
 
@@ -55,16 +55,16 @@ Phase 4 [████      ] 50%  YouTrack KB Sync (2/4 plans complete)
 | 1 | Database Foundation | INFRA-01 to INFRA-07 (7) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 2 | Tenant Management + MCP Shell | TENANT-01 to TENANT-07 + INFRA-02 (8) | Complete (4/4 plans — human-verified 2026-03-16) |
 | 3 | ERP Domain Tools | INV-01 to INV-07, ORD-01 to ORD-06, CRM-01 to CRM-05 (18) | Complete (4/4 plans — human-verified 2026-03-17) |
-| 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | In progress (2/4 plans — 04-02 complete 2026-03-17) |
+| 4 | YouTrack KB Sync | KB-01 to KB-08 (8) | In progress (3/4 plans — 04-03 complete 2026-03-17) |
 
 ---
 
 ## Performance Metrics
 
-**Plans executed:** 14
-**Plans passed verification:** 14
+**Plans executed:** 15
+**Plans passed verification:** 15
 **Plans failed verification:** 0
-**Requirements completed:** 37/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; ORD-01 through ORD-06 complete; CRM-01 through CRM-05 complete; all Phase 1+2+3 requirements verified end-to-end; KB schema foundation added Phase 4; KB-01 through KB-03 + KB-07 implemented by sync worker)
+**Requirements completed:** 40/40 (INFRA-01 through INFRA-07 complete; TENANT-01 through TENANT-07 complete; INFRA-02 complete; INV-01 through INV-07 complete; ORD-01 through ORD-06 complete; CRM-01 through CRM-05 complete; all Phase 1+2+3 requirements verified end-to-end; KB schema foundation added Phase 4; KB-01 through KB-03 + KB-07 implemented by sync worker; KB-04 through KB-06 + KB-08 implemented by KB MCP tools)
 
 | Plan | Duration | Tasks | Files | Completed |
 |------|----------|-------|-------|-----------|
@@ -82,6 +82,7 @@ Phase 4 [████      ] 50%  YouTrack KB Sync (2/4 plans complete)
 | 03-04 | 30min | 4 | 11 | 2026-03-17 |
 | 04-01 | 2min | 2 | 2 | 2026-03-17 |
 | 04-02 | 7min | 2 | 3 | 2026-03-17 |
+| 04-03 | 10min | 3 | 7 | 2026-03-17 |
 
 ## Accumulated Context
 
@@ -127,7 +128,7 @@ Phase 4 [████      ] 50%  YouTrack KB Sync (2/4 plans complete)
 - **Tool test transport pattern (LOCKED):** Integration tests use stateless per-request McpServer + transport with enableJsonResponse: true; register domain tools inside the route handler (not in beforeAll); matches tests/mcp/transport.test.ts
 - **COUNT(*) as string:** postgres.js returns COUNT(*) as string — always parseInt(count, 10) in pagination handlers
 - **ERP migration 000004 applied:** Phase 3 ERP tables (products, stock_levels, suppliers, contacts, orders, order_line_items, invoices) applied to test DB 2026-03-17
-- **createMcpServer() registers all 18 tools:** Wave 4 wiring — server.ts imports and calls registerInventoryTools + registerOrdersTools + registerCrmTools; (server as any).setToolRequestHandlers() hack removed
+- **createMcpServer() registers all 21 tools:** Phase 4 wiring — server.ts imports and calls registerInventoryTools + registerOrdersTools + registerCrmTools + registerKbTools; (server as any).setToolRequestHandlers() hack removed
 - **noContextSql pattern:** Separate postgres.js pool for RLS no-context tests — prevents post-transaction empty-string UUID cast errors in the ::uuid cast of the RLS policy
 - **app-role DDL test setup:** REVOKE CREATE ON SCHEMA public FROM PUBLIC in beforeAll / GRANT back in afterAll — enforces DDL restriction test without permanently changing schema (PostgreSQL default grants CREATE to PUBLIC)
 - **spawnSync timeout 60s:** tsx startup under parallel 12-file test suite load on Windows can exceed 10s; vitest testTimeout also increased to 60s
@@ -187,8 +188,8 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-03-17
-**Stopped at:** 04-02 complete — syncKbArticles() + startKbScheduler() + 4 integration tests green
-**Next action:** Execute 04-03 — KB MCP tools (search_kb, get_kb_article, get_kb_sync_status)
+**Stopped at:** 04-03 complete — registerKbTools() 3 tools + POST /admin/kb/refresh + startKbScheduler() wired + 9 tests green
+**Next action:** Execute 04-04 — human verification checkpoint (Phase 4 end-to-end)
 
 ---
 *State initialized: 2026-03-07*
