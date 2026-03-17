@@ -83,7 +83,13 @@ Plans:
   3. Admin can call `refresh_kb` to trigger an immediate re-sync; sync runs automatically on the configured schedule (e.g., every 30 minutes) without manual intervention
   4. AI client can ask "when was the KB last synced?" and receive a timestamp; partial sync failures do not corrupt existing cached content (write-then-swap atomic update)
   5. (**KB-08 — high complexity, noted**) At sync time, the server reads designated YouTrack KB articles and updates MCP tool descriptions/schemas accordingly; if this capability is deferred within the phase, the other four criteria above are sufficient for phase completion
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Schema extension (kbArticles) + test stubs (Wave 1)
+- [ ] 04-02-PLAN.md — Sync worker + scheduler + sync tests (Wave 2)
+- [ ] 04-03-PLAN.md — KB MCP tools + admin refresh endpoint + server wiring (Wave 3)
+- [ ] 04-04-PLAN.md — Full test suite + human verification checkpoint (Wave 4)
 
 ---
 
@@ -94,7 +100,7 @@ Plans:
 | 1. Database Foundation | 4/4 | Complete | 2026-03-16 |
 | 2. Tenant Management + MCP Shell | 4/4 | Complete | 2026-03-16 |
 | 3. ERP Domain Tools | 4/4 | Complete | 2026-03-17 |
-| 4. YouTrack KB Sync | 0/? | Not started | - |
+| 4. YouTrack KB Sync | 0/4 | Planned | - |
 
 ---
 
@@ -157,6 +163,8 @@ Plans:
 | KB-08 flagged high complexity | Research rates this "Very High" complexity and recommends deferring; criterion 5 in Phase 4 explicitly allows deferral within the phase |
 | Write tools deferred to v2 | WRITE-01 through WRITE-07 are v2 requirements; no v1 requirement covers MCP write operations |
 | Single /mcp endpoint | Tenant identified via X-Api-Key header, not URL path; stateless StreamableHTTPServerTransport with sessionIdGenerator: undefined |
+| kb_articles global cache | No tenant_id, no RLS on kb_articles — all tenants share YouTrack API documentation; KB tools use sql direct pool, not withTenantContext |
+| refresh_kb as admin REST endpoint | POST /admin/kb/refresh protected by X-Admin-Secret, consistent with admin router pattern; not an MCP tool |
 
 ---
 *Roadmap created: 2026-03-07*
@@ -167,3 +175,6 @@ Plans:
 *Updated: 2026-03-16 — Phase 1 complete: Plan 01-04 done (GitHub Actions CI workflow created + human checkpoint approved — all 7 INFRA requirements verified)*
 *Updated: 2026-03-16 — Phase 2 planned: 4 plans across 4 waves covering TENANT-01 through TENANT-07 + INFRA-02*
 *Updated: 2026-03-16 — Phase 2 complete: Plan 02-04 done (MCP server shell + auth middleware + full test suite — human checkpoint approved, MCP Inspector connected)*
+*Updated: 2026-03-17 — Phase 3 planned: 4 plans across 4 waves covering INV-01 through CRM-05 (18 tools)*
+*Updated: 2026-03-17 — Phase 3 complete: Plan 03-04 done (18 ERP tools wired + 94/94 tests green — human checkpoint approved)*
+*Updated: 2026-03-17 — Phase 4 planned: 4 plans across 4 waves covering KB-01 through KB-07 (KB-08 deferred)*
