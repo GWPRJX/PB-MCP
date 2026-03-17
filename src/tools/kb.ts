@@ -85,12 +85,18 @@ export function registerKbTools(server: McpServer): void {
 
         const lastSyncedRows = await sql`
           SELECT MAX(synced_at) AS last_synced_at FROM kb_articles
-        ` as [{ last_synced_at: Date | null }];
+        ` as [{ last_synced_at: Date | string | null }];
 
-        const lastSyncedAt = lastSyncedRows[0]?.last_synced_at ?? null;
+        const rawLastSynced = lastSyncedRows[0]?.last_synced_at ?? null;
+        let lastSyncedAtIso: string | null = null;
+        if (rawLastSynced instanceof Date) {
+          lastSyncedAtIso = rawLastSynced.toISOString();
+        } else if (typeof rawLastSynced === 'string') {
+          lastSyncedAtIso = rawLastSynced;
+        }
 
         return toolSuccess({
-          last_synced_at: lastSyncedAt ? lastSyncedAt.toISOString() : null,
+          last_synced_at: lastSyncedAtIso,
           article_count: articleCount,
         });
       } catch (err) {

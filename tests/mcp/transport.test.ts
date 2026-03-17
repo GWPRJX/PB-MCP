@@ -107,7 +107,7 @@ describe('MCP Streamable HTTP transport (INFRA-02)', () => {
     expect(res.headers['content-type']).toContain('application/json');
   });
 
-  it('tools/list returns all 18 registered ERP tools', async () => {
+  it('tools/list returns all 21 registered ERP + KB tools', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/mcp',
@@ -117,13 +117,14 @@ describe('MCP Streamable HTTP transport (INFRA-02)', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     const tools: { name: string }[] = body.result?.tools ?? [];
-    // Phase 3: createMcpServer() registers 7 INV + 6 ORD + 5 CRM tools = 18 total
-    expect(tools).toHaveLength(18);
+    // Phase 4: createMcpServer() registers 7 INV + 6 ORD + 5 CRM + 3 KB tools = 21 total
+    expect(tools).toHaveLength(21);
     const toolNames = tools.map((t) => t.name);
     // Spot-check one tool from each domain
     expect(toolNames).toContain('list_products');
     expect(toolNames).toContain('list_orders');
     expect(toolNames).toContain('list_contacts');
+    expect(toolNames).toContain('search_kb');
   });
 
   it('GET /mcp with valid key returns 200 SSE stream', async () => {
