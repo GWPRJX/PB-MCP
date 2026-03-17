@@ -80,14 +80,17 @@ export async function syncKbArticles(): Promise<SyncResult> {
         const contentHash = a.content
           ? createHash('sha256').update(a.content).digest('hex')
           : null;
+        // Pass tags as a cast literal to avoid cross-connection sql.array() issues.
+        // Pass synced_at as ISO string to avoid Date serialization issues in cast tx.
+        const tagsLiteral = `{${tags.map((t) => `"${t.replace(/"/g, '\\"')}"`).join(',')}}`;
         await txSql`
           INSERT INTO kb_articles (youtrack_id, summary, content, tags, synced_at, content_hash)
           VALUES (
             ${a.idReadable},
             ${a.summary},
             ${a.content ?? null},
-            ${sql.array(tags)},
-            ${syncedAt},
+            ${tagsLiteral}::text[],
+            ${syncedAt.toISOString()}::timestamptz,
             ${contentHash}
           )
         `;
