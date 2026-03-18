@@ -201,8 +201,8 @@ describe('MCP auth — tenant_id resolution (TENANT-07)', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     // tools/list returns the registered tools array — a non-error response confirms
-    // the auth + context chain worked. Phase 4: createMcpServer() registers 21 tools.
+    // the auth + context chain worked. createMcpServer() registers 27 tools (21 read + 6 write).
     expect(Array.isArray(body.result?.tools)).toBe(true);
-    expect(body.result?.tools.length).toBe(21);
+    expect(body.result?.tools.length).toBe(27);
   });
 });

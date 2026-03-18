@@ -47,11 +47,11 @@ afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 describe('getToolPermissions (TAC-01)', () => {
-  it('returns all 21 tools defaulting to enabled', async () => {
+  it('returns all 27 tools defaulting to enabled', async () => {
     const perms = await getToolPermissions(tenantId);
 
     expect(perms).toHaveLength(ALL_TOOLS.length);
-    expect(perms).toHaveLength(21);
+    expect(perms).toHaveLength(27);
 
     // Every tool should default to enabled when no overrides exist
     for (const perm of perms) {
