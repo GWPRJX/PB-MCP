@@ -2,94 +2,79 @@
 
 **Project:** Multi-Tenant ERP MCP Server
 **Granularity:** Coarse
-**Total v1 Requirements:** 40
-**Coverage:** 40/40 mapped (100%) ✓
 **Created:** 2026-03-07
 
 ---
 
-## Phases
+## v1.0 — Core MCP Server (COMPLETE)
+
+**Requirements:** 40 | **Coverage:** 40/40 mapped | **Completed:** 2026-03-17
+
+### v1 Phases
 
 - [x] **Phase 1: Database Foundation** - PostgreSQL schema with RLS enforcing tenant isolation; CI-verified cross-tenant data separation before any application layer is built
 - [x] **Phase 2: Tenant Management + MCP Shell** - Admin REST API for tenant provisioning, API key management, and the MCP server transport layer with per-request tenant auth middleware
-- [x] **Phase 3: ERP Domain Tools** - All read-only MCP tools for Inventory, Orders/Billing, and CRM giving AI clients full query access to tenant ERP data
+- [x] **Phase 3: ERP Domain Tools** - All read-only MCP tools for Inventory, Orders/Billing, and CRM giving AI clients full query access to tenant ERP data via live POSibolt API
 - [x] **Phase 4: YouTrack KB Sync** - YouTrack article cache, scheduled sync, and KB query tools so AI clients can search live API documentation
+
+---
+
+## v2.0 — Admin Dashboard + Write Operations
+
+**Requirements:** 26 | **Coverage:** 26/26 mapped
+
+### v2 Phases
+
+- [ ] **Phase 5: Backend Services** - Complete tool access control, audit logging, JWT dashboard auth, API key expiry; apply pending migrations and write tests for all new backend services
+- [ ] **Phase 6: Admin Dashboard + Doc Upload** - Finish React admin dashboard with all management tabs, add API doc upload/management, wire production build serving
+- [ ] **Phase 7: Write Tools** - MCP write tools for stock adjustments, invoice creation/editing, and contact management via POSibolt POST API
 
 ---
 
 ## Phase Details
 
-### Phase 1: Database Foundation
-**Goal**: Tenant data is isolated at the database layer and verified safe before any application code runs on top of it
-**Depends on**: Nothing (first phase)
-**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05, INFRA-06, INFRA-07
+### Phase 5: Backend Services
+**Goal**: All v2 backend services are migrated, tested, and production-ready — tool access control filters MCP tools per tenant/key, audit log records every tool call, dashboard auth uses JWT, and API keys support expiry
+**Depends on**: v1 complete (Phases 1-4)
+**Requirements**: TAC-01, TAC-02, TAC-03, TAC-04, TAC-05, AUTH-01, AUTH-02
+**Existing code**: Significant v2 backend code already exists in working tree (tool-permissions-service, audit-service, connection-tester, updated auth middleware, updated context). Migrations 000007 + 000008 written but not applied. Audit logging written but not wired into tool handlers.
 **Success Criteria** (what must be TRUE):
-  1. Running migrations creates all tenant-bearing tables with `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` active on every one of them
-  2. The application connects using a dedicated non-superuser role; connecting as that role and querying another tenant's data returns zero rows, not an error
-  3. CI pipeline runs a cross-tenant isolation test: seeding data for Tenant A and querying as Tenant B returns empty results
-  4. CI pipeline fails the build if any tenant-bearing table is missing an RLS policy
-  5. All application logs write to stderr only; no stdout output is produced by the server process
-**Plans:** 4 plans
+  1. Migrations 000007 (tool_permissions) and 000008 (audit_log) applied; CI updated to include them
+  2. Admin can toggle tools per tenant via `PUT /admin/tenants/:id/tools`; disabled tools do not appear in MCP `tools/list` for that tenant
+  3. Admin can restrict a specific API key to a subset of tools via `PUT /admin/tenants/:id/keys/:keyId/tools`; MCP session only sees the intersection of tenant-enabled and key-allowed tools
+  4. Every MCP tool call (success or error) creates an audit_log row with tenant_id, key_id, tool_name, params, status, and duration_ms; admin can query via `GET /admin/tenants/:id/audit-log`
+  5. `POST /admin/auth/login` returns a signed JWT; dashboard uses JWT (not raw admin secret) for all subsequent requests; JWT has configurable expiry
+  6. API keys accept an optional `expires_at` timestamp; expired keys return 401 with "API key expired" message
+  7. All new backend services have integration tests (tool permissions CRUD, audit recording + query, JWT auth flow, key expiry rejection)
 
-Plans:
-- [x] 01-01-PLAN.md — Project scaffold + all test stubs (Wave 1) — completed 2026-03-16
-- [x] 01-02-PLAN.md — Foundation migrations: roles, tenants, api_keys (Wave 2) — completed 2026-03-16
-- [x] 01-03-PLAN.md — ERP + KB migrations, integration tests, startup check (Wave 3) — completed 2026-03-16
-- [x] 01-04-PLAN.md — GitHub Actions CI workflow + human verification checkpoint (Wave 4) — completed 2026-03-16
-
-### Phase 2: Tenant Management + MCP Shell
-**Goal**: A developer can provision a new tenant, receive an API key, and connect an MCP client that authenticates correctly and receives an empty tool list
-**Depends on**: Phase 1
-**Requirements**: TENANT-01, TENANT-02, TENANT-03, TENANT-04, TENANT-05, TENANT-06, TENANT-07, INFRA-02
+### Phase 6: Admin Dashboard + Doc Upload
+**Goal**: Admin can manage all aspects of the MCP server through a polished React dashboard — tenants, keys, tool permissions, ERP config, audit logs, and API documentation upload
+**Depends on**: Phase 5
+**Requirements**: DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, DASH-06, DASH-07, DASH-08, DASH-09, UPLOAD-01, UPLOAD-02, UPLOAD-03, UPLOAD-04
+**Existing code**: Dashboard scaffolded with Vite + React + Tailwind. Pages exist for login, tenant list, create tenant, tenant detail with tabs. API client wired. Needs JWT auth integration, doc upload feature, build/serve pipeline, polish.
 **Success Criteria** (what must be TRUE):
-  1. `POST /admin/tenants` with name, slug, and plan returns `{ tenantId, apiKey }` — the raw API key is shown exactly once and never retrievable again
-  2. `GET /admin/tenants` lists all tenants with status and key count; `GET /admin/tenants/:id` returns full tenant detail
-  3. Admin can issue additional API keys for a tenant and revoke any key; revoked keys are immediately rejected
-  4. An MCP client presenting a valid API key in the request header receives a successful `tools/list` response (empty list) from the MCP server; an invalid or missing key is rejected with an auth error
-  5. Developer onboarding end-to-end — clone repo, run migrations, create tenant, connect Claude Desktop or MCP Inspector — completes in under 10 minutes
-**Plans:** 4 plans
+  1. Dashboard login flow uses JWT endpoint from Phase 5; session persists across page refresh; expired JWT redirects to login
+  2. Tenant list page loads all tenants with name, slug, plan, status, and key count; create tenant form validates slug and reveals API key once
+  3. Tenant detail page has working tabs: API Keys (create/revoke/scope), Tool Permissions (toggle on/off), ERP Config (save/test), Audit Log (paginated/filterable)
+  4. API Docs tab: admin can upload markdown files, view uploaded docs, edit content, delete docs; uploaded docs appear in `search_kb` and `get_kb_article` MCP tool results
+  5. `POST /admin/kb/upload` accepts markdown content with title and optional tags; stores as kb_articles row
+  6. Dashboard production build (`dashboard/dist/`) served by Fastify via @fastify/static at `/dashboard/`; SPA fallback handles client-side routing
+  7. Root package.json has `dashboard:dev` and `dashboard:build` scripts; `.gitignore` includes `dashboard/node_modules/` and `dashboard/dist/`
 
-Plans:
-- [x] 02-01-PLAN.md — Dependencies install + all test stubs (Wave 1) — completed 2026-03-16
-- [x] 02-02-PLAN.md — Drizzle schema + TenantService + AsyncLocalStorage context (Wave 2) — completed 2026-03-16
-- [x] 02-03-PLAN.md — Admin REST API: Fastify server + 5 routes + admin test suite (Wave 3) — completed 2026-03-16
-- [x] 02-04-PLAN.md — MCP server shell + auth middleware + server entry point + human checkpoint (Wave 4) — completed 2026-03-16
-
-### Phase 3: ERP Domain Tools
-**Goal**: An AI client authenticated as a tenant can query inventory, orders, billing, and contacts through MCP tools, covering all read-only ERP operations
-**Depends on**: Phase 2
-**Requirements**: INV-01, INV-02, INV-03, INV-04, INV-05, INV-06, INV-07, ORD-01, ORD-02, ORD-03, ORD-04, ORD-05, ORD-06, CRM-01, CRM-02, CRM-03, CRM-04, CRM-05
+### Phase 7: Write Tools
+**Goal**: AI clients can create and modify stock entries, invoices, and contacts through MCP tools — all write operations go through the live POSibolt API with proper validation
+**Depends on**: Phase 5 (audit logging wired), Phase 6 (dashboard for testing)
+**Requirements**: WRITE-01, WRITE-02, WRITE-03, WRITE-04, WRITE-05, WRITE-06
+**Existing code**: `pbPost()` helper already exists in `src/posibolt/client.ts`. Read tools pattern established. `shouldRegister()` filter in place.
 **Success Criteria** (what must be TRUE):
-  1. AI client can ask "what products do we carry?" and receive a paginated product list with name, SKU, price, and description; "which products are low on stock?" returns only those below reorder threshold
-  2. AI client can ask "show me open orders this month" and receive filtered, paginated orders with line items and linked contact; "which invoices are overdue?" returns only past-due unpaid invoices with a payment summary
-  3. AI client can ask "look up customer Jane Smith" and receive contact detail, order history, and outstanding invoice balance in separate tool calls — all scoped to the authenticated tenant's data
-  4. All 18 tools enforce tenant isolation: a query run with Tenant A's API key never returns data belonging to Tenant B
-  5. All list tools support pagination (limit + cursor) and return total_count; all tools return structured error responses with error code and field on invalid input
-**Plans**: 4 plans
-
-Plans:
-- [x] 03-01-PLAN.md — Schema extension + test stubs (Wave 1) — completed 2026-03-17
-- [x] 03-02-PLAN.md — Inventory tools + tests — 7 tools (Wave 2) — completed 2026-03-17
-- [x] 03-03-PLAN.md — Orders + CRM tools + tests — 11 tools (Wave 3) — completed 2026-03-17
-- [x] 03-04-PLAN.md — Server wiring + DB test fixes + human checkpoint (Wave 4) — completed 2026-03-17
-
-### Phase 4: YouTrack KB Sync
-**Goal**: AI clients can search live YouTrack API documentation, and the sync worker keeps the local cache current automatically
-**Depends on**: Phase 3
-**Requirements**: KB-01, KB-02, KB-03, KB-04, KB-05, KB-06, KB-07, KB-08
-**Success Criteria** (what must be TRUE):
-  1. Sync worker pulls all articles from the YouTrack REST API using paginated requests (looping past the 42-item default) and stores them in the local PostgreSQL cache; a KB with more than 42 articles is fully captured, not silently truncated
-  2. AI client can call `search_kb` with a keyword and receive matching article summaries; `get_kb_article` returns the full content of a specific article
-  3. Admin can call `refresh_kb` to trigger an immediate re-sync; sync runs automatically on the configured schedule (e.g., every 30 minutes) without manual intervention
-  4. AI client can ask "when was the KB last synced?" and receive a timestamp; partial sync failures do not corrupt existing cached content (write-then-swap atomic update)
-  5. (**KB-08 — high complexity, noted**) At sync time, the server reads designated YouTrack KB articles and updates MCP tool descriptions/schemas accordingly; if this capability is deferred within the phase, the other four criteria above are sufficient for phase completion
-**Plans:** 4 plans
-
-Plans:
-- [x] 04-01-PLAN.md — Schema extension (kbArticles) + test stubs (Wave 1) — completed 2026-03-17
-- [x] 04-02-PLAN.md — Sync worker + scheduler + sync tests (Wave 2) — completed 2026-03-17
-- [x] 04-03-PLAN.md — KB MCP tools + admin refresh endpoint + server wiring (Wave 3) — completed 2026-03-17
-- [x] 04-04-PLAN.md — Full test suite + human verification checkpoint (Wave 4) — completed 2026-03-17
+  1. MCP tool `create_stock_entry` accepts product ID, warehouse, quantity, and adjustment type; calls POSibolt inventory API; returns created entry details
+  2. MCP tool `update_stock_entry` modifies an existing stock/inventory record in POSibolt; returns updated details
+  3. MCP tool `create_invoice` accepts customer ID, line items, and optional dates; calls POSibolt sales invoice API; returns invoice number and total
+  4. MCP tool `update_invoice` modifies an existing invoice (e.g., add line, change status); returns updated invoice
+  5. MCP tool `create_contact` accepts name, email, phone, type (customer/vendor), and optional fields; calls POSibolt customer master API; returns created partner ID
+  6. MCP tool `update_contact` modifies existing business partner fields; returns updated contact
+  7. All 6 write tools are audit-logged, respect tool access control, and return structured errors on POSibolt API failures
+  8. Write tools registered in ALL_TOOLS list and manageable via dashboard tool permissions
 
 ---
 
@@ -101,10 +86,15 @@ Plans:
 | 2. Tenant Management + MCP Shell | 4/4 | Complete | 2026-03-16 |
 | 3. ERP Domain Tools | 4/4 | Complete | 2026-03-17 |
 | 4. YouTrack KB Sync | 4/4 | Complete | 2026-03-17 |
+| 5. Backend Services | 0/? | Not started | — |
+| 6. Admin Dashboard + Doc Upload | 0/? | Not started | — |
+| 7. Write Tools | 0/? | Not started | — |
 
 ---
 
 ## Coverage Map
+
+### v1
 
 | Requirement | Phase |
 |-------------|-------|
@@ -147,35 +137,71 @@ Plans:
 | KB-05 | Phase 4 |
 | KB-06 | Phase 4 |
 | KB-07 | Phase 4 |
-| KB-08 | Phase 4 |
+| KB-08 | Phase 4 (deferred) |
 
-**Mapped:** 40/40 ✓
-**Orphaned:** 0 ✓
+### v2
+
+| Requirement | Phase |
+|-------------|-------|
+| TAC-01 | Phase 5 |
+| TAC-02 | Phase 5 |
+| TAC-03 | Phase 5 |
+| TAC-04 | Phase 5 |
+| TAC-05 | Phase 5 |
+| AUTH-01 | Phase 5 |
+| AUTH-02 | Phase 5 |
+| DASH-01 | Phase 6 |
+| DASH-02 | Phase 6 |
+| DASH-03 | Phase 6 |
+| DASH-04 | Phase 6 |
+| DASH-05 | Phase 6 |
+| DASH-06 | Phase 6 |
+| DASH-07 | Phase 6 |
+| DASH-08 | Phase 6 |
+| DASH-09 | Phase 6 |
+| UPLOAD-01 | Phase 6 |
+| UPLOAD-02 | Phase 6 |
+| UPLOAD-03 | Phase 6 |
+| UPLOAD-04 | Phase 6 |
+| WRITE-01 | Phase 7 |
+| WRITE-02 | Phase 7 |
+| WRITE-03 | Phase 7 |
+| WRITE-04 | Phase 7 |
+| WRITE-05 | Phase 7 |
+| WRITE-06 | Phase 7 |
+
+**v1 Mapped:** 40/40
+**v2 Mapped:** 26/26
+**Orphaned:** 0
 
 ---
 
 ## Key Decisions Captured
 
+### v1
+
 | Decision | Rationale |
 |----------|-----------|
-| MCP server shell folds into Phase 2 | TENANT-06 and TENANT-07 own the auth middleware requirements; no separate INFRA requirements for MCP transport exist; coarse granularity favors merging |
-| ERP domain tools in one phase | INV, ORD, CRM are all read-only, share the same handler shape, and have no inter-phase dependencies; coarse granularity warrants grouping |
-| KB-08 flagged high complexity | Research rates this "Very High" complexity and recommends deferring; criterion 5 in Phase 4 explicitly allows deferral within the phase |
-| Write tools deferred to v2 | WRITE-01 through WRITE-07 are v2 requirements; no v1 requirement covers MCP write operations |
-| Single /mcp endpoint | Tenant identified via X-Api-Key header, not URL path; stateless StreamableHTTPServerTransport with sessionIdGenerator: undefined |
-| kb_articles global cache | No tenant_id, no RLS on kb_articles — all tenants share YouTrack API documentation; KB tools use sql direct pool, not withTenantContext |
-| refresh_kb as admin REST endpoint | POST /admin/kb/refresh protected by X-Admin-Secret, consistent with admin router pattern; not an MCP tool |
+| MCP server shell folds into Phase 2 | TENANT-06 and TENANT-07 own the auth middleware requirements; no separate INFRA requirements for MCP transport exist |
+| ERP domain tools in one phase | INV, ORD, CRM are all read-only, share the same handler shape, and have no inter-phase dependencies |
+| KB-08 flagged high complexity | Research rates this "Very High" complexity and recommends deferring |
+| Write tools deferred to v2 | v1 is read-only; write operations require additional validation and audit |
+| Single /mcp endpoint | Tenant identified via X-Api-Key header, not URL path |
+| kb_articles global cache | No tenant_id, no RLS — all tenants share API documentation |
+| Tools call POSibolt API live | Not local DB — direct REST calls via OAuth token to tenant's POSibolt instance |
+
+### v2
+
+| Decision | Rationale |
+|----------|-----------|
+| JWT for dashboard auth | Raw admin secret in localStorage is insecure; JWT with expiry is standard practice |
+| API key expiry (not OAuth 2.1) | OAuth 2.1 is over-engineered for M2M; expiry dates on API keys cover the security gap |
+| Doc upload replaces YouTrack sync reliance | Simpler to manage; admin uploads markdown directly rather than depending on external sync |
+| Phase 5 before Phase 6 | Dashboard needs JWT auth and working backend services before frontend can be completed |
+| Write tools in Phase 7 | Requires Phase 5 (audit logging) and benefits from Phase 6 (dashboard for testing/permissions) |
+| 3 phases for v2 | Backend services → Dashboard + Upload → Write tools; clean dependency chain |
 
 ---
 *Roadmap created: 2026-03-07*
-*Updated: 2026-03-10 — Phase 1 planned (4 plans, 4 waves)*
-*Updated: 2026-03-16 — Plan 01-01 complete (project scaffold + test stubs)*
-*Updated: 2026-03-16 — Plan 01-02 complete (SQL migrations: roles, tenants, api_keys with RLS + postgres.js client)*
-*Updated: 2026-03-16 — Plan 01-03 complete (ERP migrations: 7 RLS tables + kb_articles global cache + integration tests + check-pending.ts)*
-*Updated: 2026-03-16 — Phase 1 complete: Plan 01-04 done (GitHub Actions CI workflow created + human checkpoint approved — all 7 INFRA requirements verified)*
-*Updated: 2026-03-16 — Phase 2 planned: 4 plans across 4 waves covering TENANT-01 through TENANT-07 + INFRA-02*
-*Updated: 2026-03-16 — Phase 2 complete: Plan 02-04 done (MCP server shell + auth middleware + full test suite — human checkpoint approved, MCP Inspector connected)*
-*Updated: 2026-03-17 — Phase 3 planned: 4 plans across 4 waves covering INV-01 through CRM-05 (18 tools)*
-*Updated: 2026-03-17 — Phase 3 complete: Plan 03-04 done (18 ERP tools wired + 94/94 tests green — human checkpoint approved)*
-*Updated: 2026-03-17 — Phase 4 planned: 4 plans across 4 waves covering KB-01 through KB-07 (KB-08 deferred)*
-*Updated: 2026-03-17 — Phase 4 complete: 107/107 tests green, 21 MCP tools live, human checkpoint approved — v1.0 milestone complete*
+*v1.0 complete: 2026-03-17 — 4 phases, 16 plans, 39/40 requirements delivered*
+*v2.0 started: 2026-03-18 — 3 phases, 26 requirements scoped*

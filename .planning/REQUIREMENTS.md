@@ -61,42 +61,70 @@
 - [x] **KB-05**: MCP tool `get_kb_article` returns full content of a specific article by ID
 - [x] **KB-06**: MCP tool `search_kb` returns articles matching a keyword/phrase query; `get_kb_sync_status` returns cache stats
 - [x] **KB-07**: Atomic write-then-swap (DELETE+INSERT in single transaction) prevents partial-sync corruption
-- [ ] **KB-08**: Server reads YouTrack KB articles to update MCP tool descriptions/schemas at sync time (self-configuration) ⚠️ High complexity — **DEFERRED to v2**
+- [ ] **KB-08**: Server reads YouTrack KB articles to update MCP tool descriptions/schemas at sync time (self-configuration) — **DEFERRED (v1 deferral, not in v2 scope)**
+
+---
 
 ## v2 Requirements
 
-### MCP Write Tools
+### Tool Access Control (TAC)
 
-- **WRITE-01**: MCP tool `create_product` adds a new product to tenant catalog
-- **WRITE-02**: MCP tool `update_stock_level` adjusts inventory quantity
-- **WRITE-03**: MCP tool `create_order` creates a sales order with line items
-- **WRITE-04**: MCP tool `create_invoice` generates invoice from an order
-- **WRITE-05**: MCP tool `record_payment` marks invoice as paid (full or partial)
-- **WRITE-06**: MCP tool `create_contact` adds a new CRM contact
-- **WRITE-07**: MCP tool `update_contact` updates contact details
+- **TAC-01**: Admin can enable/disable specific MCP tools per tenant via REST API
+- **TAC-02**: Admin can restrict an API key to a subset of the tenant's enabled tools (per-key scoping)
+- **TAC-03**: Disabled/unscoped tools are not registered in the MCP server for that tenant's session
+- **TAC-04**: Every MCP tool call is recorded in an append-only audit log (tenant_id, key_id, tool_name, params, status, duration)
+- **TAC-05**: Admin can query audit log filtered by tool name and status with pagination
 
-### Auth & Security
+### Auth & Security (AUTH)
 
-- **AUTH-01**: OAuth 2.1 resource server replaces API key auth
-- **AUTH-02**: Scoped API keys (read-only vs read-write)
-- **AUTH-03**: Audit log of all MCP tool calls per tenant
+- **AUTH-01**: Dashboard login returns a JWT with expiry; dashboard stores JWT (not raw admin secret) in localStorage
+- **AUTH-02**: API keys support optional expiry dates; expired keys are rejected at auth time with a clear error
 
-### Admin UI
+### Admin Dashboard (DASH)
 
-- **ADMINUI-01**: Web-based admin panel for tenant management (visual alternative to REST API)
+- **DASH-01**: Login page authenticates admin via JWT endpoint and stores session token
+- **DASH-02**: Tenant list view showing name, slug, plan, status, key count
+- **DASH-03**: Create tenant form with slug validation and one-time API key reveal
+- **DASH-04**: Tenant detail view with tabbed interface (Keys, Tools, ERP Config, Audit Log, API Docs)
+- **DASH-05**: API Keys tab — list active/revoked keys, create new keys, revoke keys, per-key tool scoping
+- **DASH-06**: Tool Permissions tab — toggle tools on/off per tenant with bulk enable/disable
+- **DASH-07**: ERP Config tab — update POSibolt connection credentials, test connection with live feedback
+- **DASH-08**: Audit Log tab — paginated tool call history, filterable by tool name and success/error status
+- **DASH-09**: Dashboard served as SPA by Fastify (@fastify/static) in production; Vite dev proxy in development
+
+### API Doc Upload (UPLOAD)
+
+- **UPLOAD-01**: Admin can upload markdown API doc files via dashboard or REST endpoint
+- **UPLOAD-02**: Uploaded docs stored in kb_articles table (same schema as YouTrack-synced articles)
+- **UPLOAD-03**: Admin can list, view, edit, and delete uploaded API docs through dashboard
+- **UPLOAD-04**: Uploaded docs are searchable via existing `search_kb` and `get_kb_article` MCP tools
+
+### MCP Write Tools (WRITE)
+
+- **WRITE-01**: MCP tool `create_stock_entry` creates an inventory adjustment in POSibolt via POST API
+- **WRITE-02**: MCP tool `update_stock_entry` modifies an existing stock/inventory entry in POSibolt
+- **WRITE-03**: MCP tool `create_invoice` creates a sales invoice via POSibolt POST API
+- **WRITE-04**: MCP tool `update_invoice` modifies an existing invoice in POSibolt
+- **WRITE-05**: MCP tool `create_contact` adds a new business partner (customer/vendor) in POSibolt
+- **WRITE-06**: MCP tool `update_contact` updates existing business partner details in POSibolt
+
+---
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| HR / Payroll module | Deferred — not in v1 scope, high complexity |
+| HR / Payroll module | Deferred — not in v1/v2 scope, high complexity |
 | Mobile app | Web-first; mobile is a future milestone |
 | Real-time collaborative editing | Not needed for AI-assistant use case |
 | Per-schema or per-database tenant isolation | PostgreSQL schema limits and migration overhead; RLS chosen |
 | Dynamic tool registration at runtime | MCP SDK does not support post-connection capability changes |
-| OAuth 2.1 for v1 | Over-engineered for v1 M2M; deferred to v2 |
+| OAuth 2.1 for MCP clients | Over-engineered for current M2M usage; API keys with expiry sufficient for v2 |
+| KB-08 self-configuration | Deferred indefinitely — upload-based doc management replaces this approach |
 
 ## Traceability
+
+### v1
 
 | Requirement | Phase | Phase Name | Status |
 |-------------|-------|------------|--------|
@@ -139,13 +167,42 @@
 | KB-05 | Phase 4 | YouTrack KB Sync | Complete (04-03; human-verified 2026-03-17) |
 | KB-06 | Phase 4 | YouTrack KB Sync | Complete (04-03; human-verified 2026-03-17) |
 | KB-07 | Phase 4 | YouTrack KB Sync | Complete (04-02; human-verified 2026-03-17) |
-| KB-08 | Phase 4 | YouTrack KB Sync | **Deferred to v2** — Very High complexity; criterion 5 allows deferral |
+| KB-08 | Phase 4 | YouTrack KB Sync | **Deferred** — not in v2 scope |
 
-**Coverage:**
-- v1 requirements: 40 total
-- Mapped to phases: 40
-- Unmapped: 0 ✓
+### v2
+
+| Requirement | Phase | Phase Name | Status |
+|-------------|-------|------------|--------|
+| TAC-01 | Phase 5 | Backend Services | Pending |
+| TAC-02 | Phase 5 | Backend Services | Pending |
+| TAC-03 | Phase 5 | Backend Services | Pending |
+| TAC-04 | Phase 5 | Backend Services | Pending |
+| TAC-05 | Phase 5 | Backend Services | Pending |
+| AUTH-01 | Phase 5 | Backend Services | Pending |
+| AUTH-02 | Phase 5 | Backend Services | Pending |
+| DASH-01 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-02 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-03 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-04 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-05 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-06 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-07 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-08 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-09 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| UPLOAD-01 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| UPLOAD-02 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| UPLOAD-03 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| UPLOAD-04 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| WRITE-01 | Phase 7 | Write Tools | Pending |
+| WRITE-02 | Phase 7 | Write Tools | Pending |
+| WRITE-03 | Phase 7 | Write Tools | Pending |
+| WRITE-04 | Phase 7 | Write Tools | Pending |
+| WRITE-05 | Phase 7 | Write Tools | Pending |
+| WRITE-06 | Phase 7 | Write Tools | Pending |
+
+**v1 Coverage:** 40/40 mapped (39 complete, 1 deferred)
+**v2 Coverage:** 26/26 mapped
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-17 — v1.0 complete; 39/40 v1 requirements delivered; KB-08 deferred to v2*
+*Last updated: 2026-03-18 — v2 requirements added (26 requirements across 3 phases)*
