@@ -79,15 +79,21 @@ Plans:
 **Depends on**: Phase 5 (audit logging wired), Phase 6 (dashboard for testing)
 **Requirements**: WRITE-01, WRITE-02, WRITE-03, WRITE-04, WRITE-05, WRITE-06
 **Existing code**: `pbPost()` helper already exists in `src/posibolt/client.ts`. Read tools pattern established. `shouldRegister()` filter in place.
+**Plans:** 2 plans
+
+Plans:
+- [x] 07-01-PLAN.md — Create 6 write tools (stock, invoice, contact CRUD), register in MCP server + ALL_TOOLS
+- [ ] 07-02-PLAN.md — Integration tests for write tools (registration, filtering, ALL_TOOLS)
+
 **Success Criteria** (what must be TRUE):
   1. MCP tool `create_stock_entry` accepts product ID, warehouse, quantity, and adjustment type; calls POSibolt inventory API; returns created entry details
-  2. MCP tool `update_stock_entry` modifies an existing stock/inventory record in POSibolt; returns updated details
-  3. MCP tool `create_invoice` accepts customer ID, line items, and optional dates; calls POSibolt sales invoice API; returns invoice number and total
-  4. MCP tool `update_invoice` modifies an existing invoice (e.g., add line, change status); returns updated invoice
-  5. MCP tool `create_contact` accepts name, email, phone, type (customer/vendor), and optional fields; calls POSibolt customer master API; returns created partner ID
+  2. MCP tool `update_stock_entry` completes a pending stock transfer in POSibolt; returns transfer details
+  3. MCP tool `create_invoice` accepts customer ID, line items, and optional dates; calls POSibolt sales invoice API; returns invoice details
+  4. MCP tool `update_invoice` cancels an existing order/invoice (POSibolt completed transactions are immutable); returns cancellation result
+  5. MCP tool `create_contact` accepts name, code, region, address, and optional fields; calls POSibolt customer master API; returns created partner ID
   6. MCP tool `update_contact` modifies existing business partner fields; returns updated contact
   7. All 6 write tools are audit-logged, respect tool access control, and return structured errors on POSibolt API failures
-  8. Write tools registered in ALL_TOOLS list and manageable via dashboard tool permissions
+  8. Write tools registered in ALL_TOOLS list (27 total) and manageable via dashboard tool permissions
 
 ---
 
@@ -101,7 +107,7 @@ Plans:
 | 4. YouTrack KB Sync | 4/4 | Complete | 2026-03-17 |
 | 5. Backend Services | 3/3 | Complete | 2026-03-18 |
 | 6. Admin Dashboard + Doc Upload | 2/2 | Complete | 2026-03-18 |
-| 7. Write Tools | 0/? | Not started | — |
+| 7. Write Tools | 1/2 | In Progress | — |
 
 ---
 
@@ -225,3 +231,4 @@ Plans:
 *v2.0 started: 2026-03-18 — 3 phases, 26 requirements scoped*
 *Phase 5 planned: 2026-03-18 — 3 plans in 2 waves*
 *Phase 6 planned: 2026-03-18 — 2 plans in 2 waves*
+*Phase 7 planned: 2026-03-18 — 2 plans in 2 waves*

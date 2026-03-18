@@ -101,12 +101,12 @@
 
 ### MCP Write Tools (WRITE)
 
-- **WRITE-01**: MCP tool `create_stock_entry` creates an inventory adjustment in POSibolt via POST API
-- **WRITE-02**: MCP tool `update_stock_entry` modifies an existing stock/inventory entry in POSibolt
-- **WRITE-03**: MCP tool `create_invoice` creates a sales invoice via POSibolt POST API
-- **WRITE-04**: MCP tool `update_invoice` modifies an existing invoice in POSibolt
-- **WRITE-05**: MCP tool `create_contact` adds a new business partner (customer/vendor) in POSibolt
-- **WRITE-06**: MCP tool `update_contact` updates existing business partner details in POSibolt
+- [x] **WRITE-01**: MCP tool `create_stock_entry` creates an inventory adjustment in POSibolt via POST API
+- [x] **WRITE-02**: MCP tool `update_stock_entry` modifies an existing stock/inventory entry in POSibolt
+- [x] **WRITE-03**: MCP tool `create_invoice` creates a sales invoice via POSibolt POST API
+- [x] **WRITE-04**: MCP tool `update_invoice` modifies an existing invoice in POSibolt
+- [x] **WRITE-05**: MCP tool `create_contact` adds a new business partner (customer/vendor) in POSibolt
+- [x] **WRITE-06**: MCP tool `update_contact` updates existing business partner details in POSibolt
 
 ---
 
@@ -193,12 +193,12 @@
 | UPLOAD-02 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-02) |
 | UPLOAD-03 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-02) |
 | UPLOAD-04 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-02) |
-| WRITE-01 | Phase 7 | Write Tools | Pending |
-| WRITE-02 | Phase 7 | Write Tools | Pending |
-| WRITE-03 | Phase 7 | Write Tools | Pending |
-| WRITE-04 | Phase 7 | Write Tools | Pending |
-| WRITE-05 | Phase 7 | Write Tools | Pending |
-| WRITE-06 | Phase 7 | Write Tools | Pending |
+| WRITE-01 | Phase 7 | Write Tools | Complete (07-01; 2026-03-18) |
+| WRITE-02 | Phase 7 | Write Tools | Complete (07-01; 2026-03-18) |
+| WRITE-03 | Phase 7 | Write Tools | Complete (07-01; 2026-03-18) |
+| WRITE-04 | Phase 7 | Write Tools | Complete (07-01; 2026-03-18) |
+| WRITE-05 | Phase 7 | Write Tools | Complete (07-01; 2026-03-18) |
+| WRITE-06 | Phase 7 | Write Tools | Complete (07-01; 2026-03-18) |
 
 **v1 Coverage:** 40/40 mapped (39 complete, 1 deferred)
 **v2 Coverage:** 26/26 mapped
