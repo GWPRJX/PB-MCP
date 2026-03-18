@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Admin Dashboard + Write Operations
 current_phase: 6
-current_plan: 1
-status: phase_complete
-stopped_at: Completed 05-03-PLAN.md (integration tests) — Phase 5 complete
-last_updated: "2026-03-18T09:58:00.000Z"
+current_plan: 2
+status: in-progress
+stopped_at: Completed 06-01-PLAN.md — next is 06-02
+last_updated: "2026-03-18T10:23:54Z"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
 ---
 
 # STATE: PB MCP
@@ -34,19 +34,19 @@ progress:
 
 **Milestone:** v2.0 — Admin Dashboard + Write Operations
 **Current Phase:** 6 (Admin Dashboard + Doc Upload)
-**Current Plan:** 06-01 (not yet planned)
-**Status:** Phase 5 complete, Phase 6 not yet planned
+**Current Plan:** 06-02 (next to execute)
+**Status:** 06-01 complete, 06-02 pending
 
 **Progress:**
 ```
 v1.0 [██████████] 100% COMPLETE (4/4 phases, 16/16 plans)
-v2.0 [███░░░░░░░]  33%
+v2.0 [██████░░░░]  60%
 Phase 5 [██████████] 100% Backend Services (3/3 plans complete)
-Phase 6 [░░░░░░░░░░]   0% Admin Dashboard + Doc Upload (not yet planned)
+Phase 6 [█████░░░░░]  50% Admin Dashboard + Doc Upload (1/2 plans complete)
 Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 ```
 
-**Overall:** 1/3 v2 phases complete
+**Overall:** 1/3 v2 phases complete (4/5 plans executed)
 
 ---
 
@@ -55,7 +55,7 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 5 | Backend Services | TAC-01 to TAC-05, AUTH-01, AUTH-02 (7) | Complete (3/3 plans) |
-| 6 | Admin Dashboard + Doc Upload | DASH-01 to DASH-09, UPLOAD-01 to UPLOAD-04 (13) | Not started |
+| 6 | Admin Dashboard + Doc Upload | DASH-01 to DASH-09, UPLOAD-01 to UPLOAD-04 (13) | In progress (1/2 plans) |
 | 7 | Write Tools | WRITE-01 to WRITE-06 (6) | Not started |
 
 ---
@@ -85,7 +85,7 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 - Write tools
 - ~~Tests for all v2 features~~ DONE (05-03)
 - ~~CI updates~~ DONE (05-01)
-- Build scripts + .gitignore for dashboard
+- ~~Build scripts + .gitignore for dashboard~~ DONE (06-01)
 
 ---
 
@@ -99,15 +99,16 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 
 ### v2
 
-**Plans executed:** 3
-**Plans passed verification:** 3
-**Requirements completed:** 7/26
+**Plans executed:** 4
+**Plans passed verification:** 4
+**Requirements completed:** 11/26
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | 05-01 | 5m | 2 | 8 |
 | 05-02 | ~3m | 2 | 10 |
 | 05-03 | 3m | 2 | 4 |
+| 06-01 | ~4m | 3 | 8 |
 
 ---
 
@@ -132,6 +133,8 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 - **Doc upload:** Markdown files stored in kb_articles table; reuses existing KB search tools
 - **Write tools:** Follow same pattern as read tools (getErpConfig → pbPost → toolSuccess); audit-logged
 - **Dashboard serving:** @fastify/static for production; Vite proxy for dev
+- **Dashboard auth:** JWT Bearer token in localStorage (jwt_token key); login via POST /admin/auth/login
+- **Per-key scoping UI:** Expandable table row with checkbox list (not modal)
 
 ### Critical Pitfalls (must not skip)
 
@@ -170,8 +173,8 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-03-18
-**Stopped at:** Completed 05-03-PLAN.md (integration tests) — Phase 5 complete
-**Next action:** Plan Phase 6 (Admin Dashboard + Doc Upload)
+**Stopped at:** Completed 06-01-PLAN.md (JWT auth + dashboard polish)
+**Next action:** Execute Phase 6 Plan 06-02 (doc upload + API Docs tab)
 
 ---
 *State initialized: 2026-03-07*
