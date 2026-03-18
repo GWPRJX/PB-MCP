@@ -3,22 +3,27 @@ import { registerInventoryTools } from '../tools/inventory.js';
 import { registerOrdersTools } from '../tools/orders.js';
 import { registerCrmTools } from '../tools/crm.js';
 import { registerKbTools } from '../tools/kb.js';
+import { registerWriteTools } from '../tools/write.js';
 
 /**
- * Create the MCP server instance with all 21 ERP + KB domain tools registered.
+ * Create the MCP server instance with tools filtered by the enabled tools list.
  *
- * Returns the McpServer instance — caller is responsible for connecting a transport.
+ * If enabledTools is provided, only tools in that list are registered.
+ * This enforces tenant-level and per-key tool access control.
  */
-export function createMcpServer(): McpServer {
+export function createMcpServer(enabledTools?: string[]): McpServer {
   const server = new McpServer({
     name: 'pb-mcp',
-    version: '1.0.0',
+    version: '2.0.0',
   });
 
-  registerInventoryTools(server);
-  registerOrdersTools(server);
-  registerCrmTools(server);
-  registerKbTools(server);
+  const filter = enabledTools ? new Set(enabledTools) : null;
+
+  registerInventoryTools(server, filter);
+  registerOrdersTools(server, filter);
+  registerCrmTools(server, filter);
+  registerKbTools(server, filter);
+  registerWriteTools(server, filter);
 
   return server;
 }

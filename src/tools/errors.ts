@@ -1,7 +1,7 @@
 /**
  * MCP tool response helpers.
  *
- * All 21 MCP tools return responses using these two helpers.
+ * All 27 MCP tools return responses using these two helpers.
  * Never throw from a tool handler — always return toolError() on failure.
  * This keeps MCP error protocol correct: isError: true with structured body.
  */
