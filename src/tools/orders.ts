@@ -2,7 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getErpConfig } from '../context.js';
 import { pbGet } from '../posibolt/client.js';
-import { toolError, toolSuccess } from './errors.js';
+import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
 
 /* ------------------------------------------------------------------ */
 /*  Helper: date formatting                                            */
@@ -93,11 +93,11 @@ interface OpenInvoiceItem {
  *
  * All tools call the POSibolt REST API via pbGet. No local database access.
  */
-export function registerOrdersTools(server: McpServer): void {
+export function registerOrdersTools(server: McpServer, filter?: Set<string> | null): void {
   // -------------------------------------------------------------------------
   // ORD-01: list_orders -- sales history with date range and optional filters
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('list_orders', filter)) server.tool(
     'list_orders',
     'List sales orders from POSibolt. Defaults to last 30 days. Optionally filter by customerId or orgId. Returns order summaries with line items and payment details.',
     {
@@ -114,7 +114,7 @@ export function registerOrdersTools(server: McpServer): void {
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ fromDate, toDate, customerId, orgId, includeCRO, limit = 200, offset = 0 }) => {
+    withAudit('list_orders', async ({ fromDate, toDate, customerId, orgId, includeCRO, limit = 200, offset = 0 }) => {
       try {
         const config = getErpConfig();
 
@@ -146,19 +146,19 @@ export function registerOrdersTools(server: McpServer): void {
         process.stderr.write(`[tools/orders] list_orders error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // ORD-02: get_order -- single order by orderNo
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_order', filter)) server.tool(
     'get_order',
     'Get full details for a single sales order by its order number (e.g. "SOKK-57102"). Returns line items, payment details, and customer info.',
     {
       orderNo: z.string().min(1).describe('POSibolt order number (e.g. "SOKK-57102").'),
     },
-    async ({ orderNo }) => {
+    withAudit('get_order', async ({ orderNo }) => {
       try {
         const config = getErpConfig();
 
@@ -183,13 +183,13 @@ export function registerOrdersTools(server: McpServer): void {
         }
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // ORD-03: list_invoices -- previous invoices with date range
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('list_invoices', filter)) server.tool(
     'list_invoices',
     'List previous invoices from POSibolt. Defaults to last 30 days. Optionally filter by customerId.',
     {
@@ -200,7 +200,7 @@ export function registerOrdersTools(server: McpServer): void {
       customerId: z.number().int().optional()
         .describe('POSibolt customer ID to filter by.'),
     },
-    async ({ fromDate, toDate, customerId }) => {
+    withAudit('list_invoices', async ({ fromDate, toDate, customerId }) => {
       try {
         const config = getErpConfig();
 
@@ -237,19 +237,19 @@ export function registerOrdersTools(server: McpServer): void {
         process.stderr.write(`[tools/orders] list_invoices error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // ORD-04: get_invoice -- single invoice by invoiceNo
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_invoice', filter)) server.tool(
     'get_invoice',
     'Get full details for a single invoice by its invoice number (e.g. "SIKK-105829"). Returns line items, payment details, and customer info.',
     {
       invoiceNo: z.string().min(1).describe('POSibolt invoice number (e.g. "SIKK-105829").'),
     },
-    async ({ invoiceNo }) => {
+    withAudit('get_invoice', async ({ invoiceNo }) => {
       try {
         const config = getErpConfig();
 
@@ -274,19 +274,19 @@ export function registerOrdersTools(server: McpServer): void {
         }
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // ORD-05: list_overdue_invoices -- open/unpaid invoices for a customer
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('list_overdue_invoices', filter)) server.tool(
     'list_overdue_invoices',
     'List all open (unpaid) invoices for a specific customer from POSibolt. Requires a customerId.',
     {
       customerId: z.number().int().describe('POSibolt customer ID (required).'),
     },
-    async ({ customerId }) => {
+    withAudit('list_overdue_invoices', async ({ customerId }) => {
       try {
         const config = getErpConfig();
 
@@ -312,13 +312,13 @@ export function registerOrdersTools(server: McpServer): void {
         process.stderr.write(`[tools/orders] list_overdue_invoices error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // ORD-06: get_payment_summary -- aggregate payment totals from sales history
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_payment_summary', filter)) server.tool(
     'get_payment_summary',
     'Get a payment summary for a date range: total invoiced amount, total from payment details, and order count. Defaults to last 30 days.',
     {
@@ -329,7 +329,7 @@ export function registerOrdersTools(server: McpServer): void {
       customerId: z.number().int().optional()
         .describe('POSibolt customer ID to filter by.'),
     },
-    async ({ fromDate, toDate, customerId }) => {
+    withAudit('get_payment_summary', async ({ fromDate, toDate, customerId }) => {
       try {
         const config = getErpConfig();
 
@@ -380,6 +380,6 @@ export function registerOrdersTools(server: McpServer): void {
         process.stderr.write(`[tools/orders] get_payment_summary error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 }

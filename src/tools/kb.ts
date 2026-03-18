@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { sql } from '../db/client.js';
-import { toolError, toolSuccess } from './errors.js';
+import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
 
 /**
  * Register all 3 KB MCP tools on the provided McpServer instance.
@@ -10,9 +10,9 @@ import { toolError, toolSuccess } from './errors.js';
  * They do NOT call getTenantId() or withTenantContext() — kb_articles has no
  * tenant_id and no RLS. This is intentional (locked decision from Phase 1).
  */
-export function registerKbTools(server: McpServer): void {
+export function registerKbTools(server: McpServer, filter?: Set<string> | null): void {
   // search_kb — keyword search across summary and content
-  server.tool(
+  if (shouldRegister('search_kb', filter)) server.tool(
     'search_kb',
     'Search the YouTrack KB for articles matching a keyword or phrase. Returns article summaries (no full content). Use get_kb_article to retrieve full content of a specific article.',
     {
@@ -20,7 +20,7 @@ export function registerKbTools(server: McpServer): void {
       limit: z.number().int().min(1).max(50).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ query, limit = 20, offset = 0 }) => {
+    withAudit('search_kb', async ({ query, limit = 20, offset = 0 }) => {
       try {
         const pattern = `%${query}%`;
         const [{ count }] = await sql`
@@ -43,17 +43,17 @@ export function registerKbTools(server: McpServer): void {
         process.stderr.write(`[tools/kb] search_kb error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    })
   );
 
   // get_kb_article — full article content by youtrack_id
-  server.tool(
+  if (shouldRegister('get_kb_article', filter)) server.tool(
     'get_kb_article',
     'Get the full content of a specific KB article by its YouTrack article ID (e.g., "P8-A-7"). Returns Markdown content.',
     {
       article_id: z.string().min(1),
     },
-    async ({ article_id }) => {
+    withAudit('get_kb_article', async ({ article_id }) => {
       try {
         const rows = await sql`
           SELECT youtrack_id, summary, content, tags, synced_at, content_hash
@@ -68,15 +68,15 @@ export function registerKbTools(server: McpServer): void {
         process.stderr.write(`[tools/kb] get_kb_article error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    })
   );
 
   // get_kb_sync_status — last sync timestamp and article count
-  server.tool(
+  if (shouldRegister('get_kb_sync_status', filter)) server.tool(
     'get_kb_sync_status',
     'Get the timestamp of the last KB sync and the total number of cached articles. Useful for checking whether the KB cache is up to date.',
     {},
-    async () => {
+    withAudit('get_kb_sync_status', async () => {
       try {
         const [{ count }] = await sql`
           SELECT COUNT(*) AS count FROM kb_articles
@@ -103,6 +103,6 @@ export function registerKbTools(server: McpServer): void {
         process.stderr.write(`[tools/kb] get_kb_sync_status error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    })
   );
 }

@@ -2,7 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getErpConfig } from '../context.js';
 import { pbGet } from '../posibolt/client.js';
-import { toolError, toolSuccess } from './errors.js';
+import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
 
 /* ------------------------------------------------------------------ */
 /*  POSibolt business-partner (BP) response shape                     */
@@ -49,7 +49,7 @@ interface OpenInvoice {
  *
  * All tools call POSibolt REST API via pbGet (no local PostgreSQL).
  */
-export function registerCrmTools(server: McpServer): void {
+export function registerCrmTools(server: McpServer, filter?: Set<string> | null): void {
   // -------------------------------------------------------------------------
   // CRM-01: list_contacts -- paginated business partners
   //
@@ -57,7 +57,7 @@ export function registerCrmTools(server: McpServer): void {
   // (can be 30K+). Pagination is applied in JS after fetching.
   // For targeted lookups prefer search_contacts instead.
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('list_contacts', filter)) server.tool(
     'list_contacts',
     'List business partners (customers/vendors) with pagination. WARNING: fetches full list from POSibolt then slices -- prefer search_contacts for targeted lookups. Optionally filter by type: "customer" or "vendor".',
     {
@@ -65,7 +65,7 @@ export function registerCrmTools(server: McpServer): void {
       offset: z.number().int().min(0).optional(),
       type: z.enum(['customer', 'vendor']).optional(),
     },
-    async ({ limit = 50, offset = 0, type }) => {
+    withAudit('list_contacts', async ({ limit = 50, offset = 0, type }) => {
       try {
         const config = getErpConfig();
         const allBp = await pbGet<BpListItem[]>(config, '/customermaster/allbplist');
@@ -87,19 +87,19 @@ export function registerCrmTools(server: McpServer): void {
         process.stderr.write(`[tools/crm] list_contacts error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // CRM-02: get_contact -- single customer by customerId (number)
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_contact', filter)) server.tool(
     'get_contact',
     'Get full details for a single business partner by its POSibolt customerId (number).',
     {
       customerId: z.number().int().positive(),
     },
-    async ({ customerId }) => {
+    withAudit('get_contact', async ({ customerId }) => {
       try {
         const config = getErpConfig();
         const detail = await pbGet<BpDetail>(config, `/customermaster/${customerId}`);
@@ -116,7 +116,7 @@ export function registerCrmTools(server: McpServer): void {
         process.stderr.write(`[tools/crm] get_contact error: ${msg}\n`);
         return toolError('INTERNAL_ERROR', msg);
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
@@ -125,7 +125,7 @@ export function registerCrmTools(server: McpServer): void {
   // POSibolt has no dedicated customer search endpoint, so we fetch the full
   // BP list and filter client-side with case-insensitive matching.
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('search_contacts', filter)) server.tool(
     'search_contacts',
     'Search business partners by name or email (case-insensitive). Fetches full BP list from POSibolt and filters in JS.',
     {
@@ -133,7 +133,7 @@ export function registerCrmTools(server: McpServer): void {
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ query, limit = 50, offset = 0 }) => {
+    withAudit('search_contacts', async ({ query, limit = 50, offset = 0 }) => {
       try {
         const config = getErpConfig();
         const allBp = await pbGet<BpListItem[]>(config, '/customermaster/allbplist');
@@ -156,13 +156,13 @@ export function registerCrmTools(server: McpServer): void {
         process.stderr.write(`[tools/crm] search_contacts error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // CRM-04: get_contact_orders -- pending customer orders
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_contact_orders', filter)) server.tool(
     'get_contact_orders',
     'Get pending sales orders for a customer by POSibolt customerId (number).',
     {
@@ -170,7 +170,7 @@ export function registerCrmTools(server: McpServer): void {
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ customerId, limit = 50, offset = 0 }) => {
+    withAudit('get_contact_orders', async ({ customerId, limit = 50, offset = 0 }) => {
       try {
         const config = getErpConfig();
         const orders = await pbGet<PendingOrder[]>(
@@ -192,13 +192,13 @@ export function registerCrmTools(server: McpServer): void {
         process.stderr.write(`[tools/crm] get_contact_orders error: ${msg}\n`);
         return toolError('INTERNAL_ERROR', msg);
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // CRM-05: get_contact_invoices -- open invoices + balances
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_contact_invoices', filter)) server.tool(
     'get_contact_invoices',
     'Get open invoices and outstanding balance for a customer by POSibolt customerId (number).',
     {
@@ -206,7 +206,7 @@ export function registerCrmTools(server: McpServer): void {
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ customerId, limit = 50, offset = 0 }) => {
+    withAudit('get_contact_invoices', async ({ customerId, limit = 50, offset = 0 }) => {
       try {
         const config = getErpConfig();
         const invoices = await pbGet<OpenInvoice[]>(
@@ -241,6 +241,6 @@ export function registerCrmTools(server: McpServer): void {
         process.stderr.write(`[tools/crm] get_contact_invoices error: ${msg}\n`);
         return toolError('INTERNAL_ERROR', msg);
       }
-    },
+    }),
   );
 }

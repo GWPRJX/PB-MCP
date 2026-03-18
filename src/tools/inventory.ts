@@ -2,7 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getErpConfig } from '../context.js';
 import { pbGet } from '../posibolt/client.js';
-import { toolError, toolSuccess } from './errors.js';
+import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
 
 /* ------------------------------------------------------------------ */
 /*  POSibolt product-list response shape                              */
@@ -49,18 +49,18 @@ interface PbWarehouseInventory {
  *   INV-06  list_suppliers       -- vendor listing guidance (delegates to search_contacts)
  *   INV-07  get_supplier         -- single vendor via /customermaster/{vendorId}
  */
-export function registerInventoryTools(server: McpServer): void {
+export function registerInventoryTools(server: McpServer, filter?: Set<string> | null): void {
   // -------------------------------------------------------------------------
   // INV-01: list_products -- paginated product list from POSibolt
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('list_products', filter)) server.tool(
     'list_products',
     'List active products from POSibolt ERP. Returns product name, SKU, prices, stock quantity, UOM, and category. Supports pagination via limit and offset.',
     {
       limit: z.number().int().min(1).max(500).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ limit = 200, offset = 0 }) => {
+    withAudit('list_products', async ({ limit = 200, offset = 0 }) => {
       try {
         const config = getErpConfig();
         const data = await pbGet<PbProduct[]>(config, '/productmaster/productlist', {
@@ -99,19 +99,19 @@ export function registerInventoryTools(server: McpServer): void {
         );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // INV-02: get_product -- search for a single product by text
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_product', filter)) server.tool(
     'get_product',
     'Search for a product by name, SKU, or barcode text. Returns the best-matching product with full pricing and stock info.',
     {
       searchText: z.string().min(1).describe('Product name, SKU, or barcode to search for'),
     },
-    async ({ searchText }) => {
+    withAudit('get_product', async ({ searchText }) => {
       try {
         const config = getErpConfig();
         const data = await pbGet<PbProduct[]>(config, '/productmaster/search', {
@@ -146,13 +146,13 @@ export function registerInventoryTools(server: McpServer): void {
         );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // INV-03: list_stock_levels -- warehouse inventory from POSibolt
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('list_stock_levels', filter)) server.tool(
     'list_stock_levels',
     'List warehouse inventory levels from POSibolt. Optionally filter by warehouseId. Returns product stock quantities per warehouse.',
     {
@@ -162,7 +162,7 @@ export function registerInventoryTools(server: McpServer): void {
         .optional()
         .describe('POSibolt warehouse ID to filter by (omit for all warehouses)'),
     },
-    async ({ warehouseId }) => {
+    withAudit('list_stock_levels', async ({ warehouseId }) => {
       try {
         const config = getErpConfig();
         const params: Record<string, string | number | boolean> = {};
@@ -187,13 +187,13 @@ export function registerInventoryTools(server: McpServer): void {
         );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // INV-04: get_stock_level -- stock info for a specific product
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_stock_level', filter)) server.tool(
     'get_stock_level',
     'Get current stock level for a specific product by searching its name or SKU. Returns stock quantity and pricing details.',
     {
@@ -202,7 +202,7 @@ export function registerInventoryTools(server: McpServer): void {
         .min(1)
         .describe('Product name, SKU, or barcode to look up stock for'),
     },
-    async ({ searchText }) => {
+    withAudit('get_stock_level', async ({ searchText }) => {
       try {
         const config = getErpConfig();
         const data = await pbGet<PbProduct[]>(config, '/productmaster/search', {
@@ -234,13 +234,13 @@ export function registerInventoryTools(server: McpServer): void {
         );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // INV-05: list_low_stock -- products below a stock threshold
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('list_low_stock', filter)) server.tool(
     'list_low_stock',
     'List active products whose current stock quantity is below the given threshold. Fetches the full product list from POSibolt and filters client-side.',
     {
@@ -253,7 +253,7 @@ export function registerInventoryTools(server: McpServer): void {
       limit: z.number().int().min(1).max(500).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ threshold = 10, limit = 200, offset = 0 }) => {
+    withAudit('list_low_stock', async ({ threshold = 10, limit = 200, offset = 0 }) => {
       try {
         const config = getErpConfig();
 
@@ -299,17 +299,17 @@ export function registerInventoryTools(server: McpServer): void {
         );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // INV-06: list_suppliers -- vendor listing guidance
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('list_suppliers', filter)) server.tool(
     'list_suppliers',
     'Vendor/supplier listing. POSibolt stores vendors in the business-partner master which can be very large. Use the search_contacts tool with type="vendor" for filtered results instead.',
     {},
-    async () => {
+    withAudit('list_suppliers', async () => {
       try {
         return toolSuccess({
           message:
@@ -324,19 +324,19 @@ export function registerInventoryTools(server: McpServer): void {
         );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    },
+    }),
   );
 
   // -------------------------------------------------------------------------
   // INV-07: get_supplier -- single vendor by POSibolt ID
   // -------------------------------------------------------------------------
-  server.tool(
+  if (shouldRegister('get_supplier', filter)) server.tool(
     'get_supplier',
     'Get full details for a single vendor/supplier by their POSibolt business-partner ID.',
     {
       vendorId: z.number().int().describe('POSibolt business-partner ID of the vendor'),
     },
-    async ({ vendorId }) => {
+    withAudit('get_supplier', async ({ vendorId }) => {
       try {
         const config = getErpConfig();
         const data = await pbGet<Record<string, unknown>>(
@@ -358,6 +358,6 @@ export function registerInventoryTools(server: McpServer): void {
         process.stderr.write(`[tools/inventory] get_supplier error: ${msg}\n`);
         return toolError('INTERNAL_ERROR', msg);
       }
-    },
+    }),
   );
 }
