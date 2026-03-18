@@ -28,6 +28,7 @@ export const apiKeys = pgTable('api_keys', {
   status: text('status').notNull().default('active'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
 });
 
 // ---------------------------------------------------------------------------
@@ -133,6 +134,36 @@ export const invoices = pgTable('invoices', {
   notes: text('notes'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Tool permissions (Phase 5) — tenant-level tool access control
+// If no rows exist for a tenant, all tools are enabled (opt-out model).
+// ---------------------------------------------------------------------------
+
+export const toolPermissions = pgTable('tool_permissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  toolName: text('tool_name').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Audit log (Phase 5) — append-only MCP tool call log
+// ---------------------------------------------------------------------------
+
+export const auditLog = pgTable('audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  keyId: uuid('key_id').references(() => apiKeys.id, { onDelete: 'set null' }),
+  toolName: text('tool_name').notNull(),
+  params: text('params'), // JSONB stored as text in Drizzle
+  status: text('status').notNull(),
+  errorMessage: text('error_message'),
+  durationMs: integer('duration_ms'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // ---------------------------------------------------------------------------
