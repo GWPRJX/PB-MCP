@@ -106,6 +106,19 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+// KB doc types
+export interface KbDoc {
+  id: string;
+  youtrackId: string;
+  title: string;
+  tags: string[];
+  createdAt: string;
+}
+
+export interface KbDocFull extends KbDoc {
+  content: string;
+}
+
 // API functions
 export const listTenants = () => api<Tenant[]>('/tenants');
 
@@ -166,3 +179,24 @@ export const listAllTools = () => api<string[]>('/tools');
 
 export const refreshKb = () =>
   api<{ synced: boolean; article_count: number }>('/kb/refresh', { method: 'POST' });
+
+// KB doc CRUD
+export const uploadDoc = (data: { title: string; content: string; tags?: string[] }) =>
+  api<KbDoc>('/kb/upload', { method: 'POST', body: JSON.stringify(data) });
+
+export const listDocs = (params?: { limit?: number; offset?: number }) => {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.offset) qs.set('offset', String(params.offset));
+  const q = qs.toString();
+  return api<{ docs: KbDoc[]; totalCount: number }>(`/kb/docs${q ? `?${q}` : ''}`);
+};
+
+export const getDoc = (id: string) =>
+  api<KbDocFull>(`/kb/docs/${id}`);
+
+export const updateDoc = (id: string, data: { title?: string; content?: string; tags?: string[] }) =>
+  api<{ updated: boolean }>(`/kb/docs/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteDoc = (id: string) =>
+  api<void>(`/kb/docs/${id}`, { method: 'DELETE' });
