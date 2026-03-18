@@ -13,6 +13,8 @@ const TENANT_BEARING_TABLES = [
   'invoices',
   'contacts',
   'api_keys',
+  'tool_permissions',
+  'audit_log',
 ] as const;
 
 let sql: ReturnType<typeof postgres>;
@@ -25,7 +27,7 @@ afterAll(async () => {
 });
 
 describe('RLS policy coverage (INFRA-04)', () => {
-  it('all 8 tenant-bearing tables have relrowsecurity=true AND relforcerowsecurity=true', async () => {
+  it('all 10 tenant-bearing tables have relrowsecurity=true AND relforcerowsecurity=true', async () => {
     sql = postgres(migrationUrl);
 
     const violations = await sql<{ tablename: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
@@ -47,7 +49,7 @@ describe('RLS policy coverage (INFRA-04)', () => {
     ).toHaveLength(0);
   });
 
-  it('all 8 tenant-bearing tables have at least one policy in pg_policies', async () => {
+  it('all 10 tenant-bearing tables have at least one policy in pg_policies', async () => {
     sql = sql ?? postgres(migrationUrl);
 
     // Find tables in the list that have zero policies

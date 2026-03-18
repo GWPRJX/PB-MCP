@@ -72,3 +72,5 @@ jobs:
         env:
           DATABASE_URL: postgres://app_login:ci_password@localhost:5432/pb_mcp_test
           DATABASE_MIGRATION_URL: postgres://postgres:postgres@localhost:5432/pb_mcp_test
+          ADMIN_SECRET: test-secret
+          JWT_SECRET: test-jwt-secret-ci

@@ -21,7 +21,9 @@ WHERE c.relkind = 'r'                     -- regular tables only
       'order_line_items',
       'invoices',
       'contacts',
-      'api_keys'
+      'api_keys',
+      'tool_permissions',
+      'audit_log'
   )
   AND (
       c.relrowsecurity = false            -- RLS not enabled
