@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { createHash } from 'crypto';
 import {
   createTenant,
   listTenants,
@@ -16,6 +17,7 @@ import {
 } from './tool-permissions-service.js';
 import { queryAuditLog } from './audit-service.js';
 import { jwtAuthHook } from './auth-middleware.js';
+import { sql } from '../db/client.js';
 
 export async function adminRouter(server: FastifyInstance): Promise<void> {
   // Apply JWT/admin-secret auth hook to ALL routes in this plugin scope
@@ -526,5 +528,251 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
     },
   }, async (_request, reply) => {
     return reply.status(200).send([...ALL_TOOLS]);
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // POST /admin/kb/upload — Upload a new API doc
+  // ──────────────────────────────────────────────────────────────
+  server.post<{
+    Body: { title: string; content: string; tags?: string[] };
+  }>('/kb/upload', {
+    schema: {
+      summary: 'Upload a new API doc',
+      description: 'Creates a kb_articles row with DOC-* youtrack_id prefix. Immediately searchable via MCP tools.',
+      security: [{ adminSecret: [] }],
+      body: {
+        type: 'object',
+        required: ['title', 'content'],
+        properties: {
+          title: { type: 'string', minLength: 1 },
+          content: { type: 'string', minLength: 1 },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            youtrackId: { type: 'string' },
+            title: { type: 'string' },
+            tags: { type: 'array', items: { type: 'string' } },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        400: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const { title, content, tags = [] } = request.body;
+
+    if (content.length > 1_048_576) {
+      return reply.status(400).send({ error: 'Content exceeds maximum size of 1MB' });
+    }
+
+    const youtrackId = `DOC-${crypto.randomUUID().split('-')[0]}`;
+    const contentHash = createHash('sha256').update(content).digest('hex');
+
+    const [row] = await sql`
+      INSERT INTO kb_articles (youtrack_id, summary, content, tags, content_hash)
+      VALUES (${youtrackId}, ${title}, ${content}, ${tags}, ${contentHash})
+      RETURNING id, youtrack_id, summary, tags, synced_at
+    `;
+
+    return reply.status(201).send({
+      id: row.id,
+      youtrackId: row.youtrack_id,
+      title: row.summary,
+      tags: row.tags,
+      createdAt: row.synced_at,
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // GET /admin/kb/docs — List uploaded docs (DOC-* prefix only)
+  // ──────────────────────────────────────────────────────────────
+  server.get<{
+    Querystring: { limit?: string; offset?: string };
+  }>('/kb/docs', {
+    schema: {
+      summary: 'List uploaded API docs',
+      security: [{ adminSecret: [] }],
+      querystring: {
+        type: 'object',
+        properties: {
+          limit: { type: 'string' },
+          offset: { type: 'string' },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const limit = request.query.limit ? parseInt(request.query.limit, 10) : 25;
+    const offset = request.query.offset ? parseInt(request.query.offset, 10) : 0;
+
+    const [countRow] = await sql`SELECT COUNT(*)::int AS count FROM kb_articles WHERE youtrack_id LIKE 'DOC-%'`;
+    const rows = await sql`
+      SELECT id, youtrack_id, summary, tags, synced_at
+      FROM kb_articles
+      WHERE youtrack_id LIKE 'DOC-%'
+      ORDER BY synced_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    return reply.status(200).send({
+      docs: rows.map((r: Record<string, unknown>) => ({
+        id: r.id,
+        youtrackId: r.youtrack_id,
+        title: r.summary,
+        tags: r.tags,
+        createdAt: r.synced_at,
+      })),
+      totalCount: countRow.count,
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // GET /admin/kb/docs/:id — Get single uploaded doc with full content
+  // ──────────────────────────────────────────────────────────────
+  server.get<{
+    Params: { id: string };
+  }>('/kb/docs/:id', {
+    schema: {
+      summary: 'Get a single uploaded API doc with full content',
+      security: [{ adminSecret: [] }],
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string', format: 'uuid' } },
+      },
+      response: {
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const [row] = await sql`
+      SELECT id, youtrack_id, summary, content, tags, synced_at
+      FROM kb_articles
+      WHERE id = ${request.params.id} AND youtrack_id LIKE 'DOC-%'
+    `;
+
+    if (!row) {
+      return reply.status(404).send({ error: 'Doc not found' });
+    }
+
+    return reply.status(200).send({
+      id: row.id,
+      youtrackId: row.youtrack_id,
+      title: row.summary,
+      content: row.content,
+      tags: row.tags,
+      createdAt: row.synced_at,
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // PUT /admin/kb/docs/:id — Update an uploaded doc
+  // ──────────────────────────────────────────────────────────────
+  server.put<{
+    Params: { id: string };
+    Body: { title?: string; content?: string; tags?: string[] };
+  }>('/kb/docs/:id', {
+    schema: {
+      summary: 'Update an uploaded API doc',
+      description: 'Only DOC-* prefixed docs can be edited. YouTrack-synced articles are protected.',
+      security: [{ adminSecret: [] }],
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string', format: 'uuid' } },
+      },
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', minLength: 1 },
+          content: { type: 'string', minLength: 1 },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { updated: { type: 'boolean' } } },
+        400: { type: 'object', properties: { error: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const { title, content, tags } = request.body;
+
+    if (content !== undefined && content.length > 1_048_576) {
+      return reply.status(400).send({ error: 'Content exceeds maximum size of 1MB' });
+    }
+
+    // Build dynamic SET clause
+    const sets: string[] = [];
+    const values: (string | string[])[] = [];
+
+    if (title !== undefined) {
+      values.push(title);
+      sets.push(`summary = $${values.length}`);
+    }
+    if (content !== undefined) {
+      values.push(content);
+      sets.push(`content = $${values.length}`);
+      const hash = createHash('sha256').update(content).digest('hex');
+      values.push(hash);
+      sets.push(`content_hash = $${values.length}`);
+    }
+    if (tags !== undefined) {
+      values.push(tags);
+      sets.push(`tags = $${values.length}`);
+    }
+
+    if (sets.length === 0) {
+      return reply.status(400).send({ error: 'No fields to update' });
+    }
+
+    // Always update synced_at
+    sets.push(`synced_at = NOW()`);
+
+    // Add WHERE clause params
+    values.push(request.params.id);
+    const idParam = `$${values.length}`;
+
+    const query = `UPDATE kb_articles SET ${sets.join(', ')} WHERE id = ${idParam} AND youtrack_id LIKE 'DOC-%'`;
+    const result = await sql.unsafe(query, values);
+
+    if (result.count === 0) {
+      return reply.status(404).send({ error: 'Doc not found' });
+    }
+
+    return reply.status(200).send({ updated: true });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // DELETE /admin/kb/docs/:id — Delete an uploaded doc
+  // ──────────────────────────────────────────────────────────────
+  server.delete<{
+    Params: { id: string };
+  }>('/kb/docs/:id', {
+    schema: {
+      summary: 'Delete an uploaded API doc',
+      description: 'Only DOC-* prefixed docs can be deleted. YouTrack-synced articles are protected.',
+      security: [{ adminSecret: [] }],
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string', format: 'uuid' } },
+      },
+      response: {
+        204: { type: 'null' },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const result = await sql`
+      DELETE FROM kb_articles WHERE id = ${request.params.id} AND youtrack_id LIKE 'DOC-%'
+    `;
+
+    if (result.count === 0) {
+      return reply.status(404).send({ error: 'Doc not found' });
+    }
+
+    return reply.status(204).send();
   });
 }
