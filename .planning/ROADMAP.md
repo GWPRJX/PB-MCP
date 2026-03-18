@@ -40,7 +40,7 @@
 **Plans:** 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Apply migrations, update CI RLS checks, wire audit logging into all MCP tool handlers
+- [x] 05-01-PLAN.md — Apply migrations, update CI RLS checks, wire audit logging into all MCP tool handlers
 - [x] 05-02-PLAN.md — JWT auth login endpoint + middleware, API key expiry (migration 000009)
 - [ ] 05-03-PLAN.md — Integration tests for tool permissions, audit log, JWT auth, and key expiry
 
@@ -93,7 +93,7 @@ Plans:
 | 2. Tenant Management + MCP Shell | 4/4 | Complete | 2026-03-16 |
 | 3. ERP Domain Tools | 4/4 | Complete | 2026-03-17 |
 | 4. YouTrack KB Sync | 4/4 | Complete | 2026-03-17 |
-| 5. Backend Services | 1/3 | In progress | — |
+| 5. Backend Services | 2/3 | In progress | — |
 | 6. Admin Dashboard + Doc Upload | 0/? | Not started | — |
 | 7. Write Tools | 0/? | Not started | — |
 

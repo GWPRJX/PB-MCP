@@ -69,11 +69,11 @@
 
 ### Tool Access Control (TAC)
 
-- **TAC-01**: Admin can enable/disable specific MCP tools per tenant via REST API
-- **TAC-02**: Admin can restrict an API key to a subset of the tenant's enabled tools (per-key scoping)
-- **TAC-03**: Disabled/unscoped tools are not registered in the MCP server for that tenant's session
-- **TAC-04**: Every MCP tool call is recorded in an append-only audit log (tenant_id, key_id, tool_name, params, status, duration)
-- **TAC-05**: Admin can query audit log filtered by tool name and status with pagination
+- [x] **TAC-01**: Admin can enable/disable specific MCP tools per tenant via REST API
+- [x] **TAC-02**: Admin can restrict an API key to a subset of the tenant's enabled tools (per-key scoping)
+- [x] **TAC-03**: Disabled/unscoped tools are not registered in the MCP server for that tenant's session
+- [x] **TAC-04**: Every MCP tool call is recorded in an append-only audit log (tenant_id, key_id, tool_name, params, status, duration)
+- [x] **TAC-05**: Admin can query audit log filtered by tool name and status with pagination
 
 ### Auth & Security (AUTH)
 
@@ -173,11 +173,11 @@
 
 | Requirement | Phase | Phase Name | Status |
 |-------------|-------|------------|--------|
-| TAC-01 | Phase 5 | Backend Services | Pending |
-| TAC-02 | Phase 5 | Backend Services | Pending |
-| TAC-03 | Phase 5 | Backend Services | Pending |
-| TAC-04 | Phase 5 | Backend Services | Pending |
-| TAC-05 | Phase 5 | Backend Services | Pending |
+| TAC-01 | Phase 5 | Backend Services | Complete (05-01; 2026-03-18) |
+| TAC-02 | Phase 5 | Backend Services | Complete (05-01; 2026-03-18) |
+| TAC-03 | Phase 5 | Backend Services | Complete (05-01; 2026-03-18) |
+| TAC-04 | Phase 5 | Backend Services | Complete (05-01; 2026-03-18) |
+| TAC-05 | Phase 5 | Backend Services | Complete (05-01; 2026-03-18) |
 | AUTH-01 | Phase 5 | Backend Services | Complete (05-02; 2026-03-18) |
 | AUTH-02 | Phase 5 | Backend Services | Complete (05-02; 2026-03-18) |
 | DASH-01 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
