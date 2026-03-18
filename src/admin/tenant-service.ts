@@ -194,7 +194,8 @@ export async function getTenant(
  */
 export async function createApiKey(
   tenantId: string,
-  label?: string
+  label?: string,
+  expiresAt?: string | null,
 ): Promise<CreateApiKeyResult> {
   const { raw, hash } = generateApiKey();
 
@@ -204,8 +205,8 @@ export async function createApiKey(
     const txSql = tx as unknown as postgres.Sql;
     await txSql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
     return txSql<ApiKeyRow[]>`
-      INSERT INTO api_keys (tenant_id, key_hash, label)
-      VALUES (${tenantId}, ${hash}, ${label ?? null})
+      INSERT INTO api_keys (tenant_id, key_hash, label, expires_at)
+      VALUES (${tenantId}, ${hash}, ${label ?? null}, ${expiresAt ?? null})
       RETURNING id, tenant_id AS "tenantId", label, status,
                 created_at AS "createdAt", revoked_at AS "revokedAt"
     `;
@@ -238,6 +239,26 @@ export async function revokeApiKey(tenantId: string, keyId: string): Promise<boo
 }
 
 /**
+ * Update a tenant's ERP configuration.
+ */
+export async function updateTenantErpConfig(
+  tenantId: string,
+  config: ErpConfigInput
+): Promise<void> {
+  await sql`
+    UPDATE tenants SET
+      erp_base_url = COALESCE(${config.erpBaseUrl ?? null}, erp_base_url),
+      erp_client_id = COALESCE(${config.erpClientId ?? null}, erp_client_id),
+      erp_app_secret = COALESCE(${config.erpAppSecret ?? null}, erp_app_secret),
+      erp_username = COALESCE(${config.erpUsername ?? null}, erp_username),
+      erp_password = COALESCE(${config.erpPassword ?? null}, erp_password),
+      erp_terminal = COALESCE(${config.erpTerminal ?? null}, erp_terminal),
+      updated_at = now()
+    WHERE id = ${tenantId}
+  `;
+}
+
+/**
  * Look up an API key by its SHA-256 hash.
  * Used by MCP auth middleware on every incoming request.
  * Returns null if the key does not exist OR if it is revoked.
@@ -252,7 +273,7 @@ export async function revokeApiKey(tenantId: string, keyId: string): Promise<boo
  */
 export async function lookupApiKeyByHash(
   hash: string
-): Promise<{ tenantId: string; keyId: string; status: string } | null> {
+): Promise<{ tenantId: string; keyId: string; status: string; allowedTools: string[] | null } | { expired: true } | null> {
   // Auth lookups use DATABASE_MIGRATION_URL (superuser, no RLS) for key resolution.
   // This pool is used ONLY for this read-only lookup — not for any tenant data operations.
   if (!process.env.DATABASE_MIGRATION_URL) {
@@ -263,8 +284,9 @@ export async function lookupApiKeyByHash(
   const authSql = postgres(process.env.DATABASE_MIGRATION_URL, { max: 2 });
 
   try {
-    const rows = await authSql<{ keyId: string; tenantId: string; status: string }[]>`
-      SELECT id AS "keyId", tenant_id AS "tenantId", status
+    const rows = await authSql<{ keyId: string; tenantId: string; status: string; allowedTools: string[] | null; expiresAt: string | null }[]>`
+      SELECT id AS "keyId", tenant_id AS "tenantId", status, allowed_tools AS "allowedTools",
+             expires_at AS "expiresAt"
       FROM api_keys
       WHERE key_hash = ${hash}
       LIMIT 1
@@ -275,7 +297,12 @@ export async function lookupApiKeyByHash(
     const row = rows[0];
     if (row.status === 'revoked') return null;
 
-    return { tenantId: row.tenantId, keyId: row.keyId, status: row.status };
+    // Check expiry — NULL expires_at means never expires
+    if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
+      return { expired: true as const };
+    }
+
+    return { tenantId: row.tenantId, keyId: row.keyId, status: row.status, allowedTools: row.allowedTools };
   } finally {
     await authSql.end();
   }

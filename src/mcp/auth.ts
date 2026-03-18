@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import postgres from 'postgres';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { lookupApiKeyByHash } from '../admin/tenant-service.js';
+import { getEnabledTools } from '../admin/tool-permissions-service.js';
 import { tenantStorage } from '../context.js';
 import type { PosiboltConfig } from '../posibolt/client.js';
 
@@ -51,7 +52,8 @@ async function loadErpConfig(tenantId: string): Promise<PosiboltConfig | null> {
 
 /**
  * Extract the X-Api-Key header, hash it with SHA-256, look up the tenant,
- * load ERP config, and run the handler within the tenant's AsyncLocalStorage context.
+ * load ERP config and enabled tools, and run the handler within the tenant's
+ * AsyncLocalStorage context.
  */
 export async function extractAndValidateApiKey(
   request: FastifyRequest,
@@ -72,6 +74,15 @@ export async function extractAndValidateApiKey(
   const hash = createHash('sha256').update(rawKey).digest('hex');
   const result = await lookupApiKeyByHash(hash);
 
+  if (result && 'expired' in result) {
+    reply.status(401).send({
+      jsonrpc: '2.0',
+      error: { code: -32001, message: 'API key expired' },
+      id: null,
+    });
+    return;
+  }
+
   if (!result) {
     reply.status(401).send({
       jsonrpc: '2.0',
@@ -81,12 +92,15 @@ export async function extractAndValidateApiKey(
     return;
   }
 
-  // Load ERP config for this tenant
-  const erpConfig = await loadErpConfig(result.tenantId);
+  // Load ERP config and enabled tools in parallel
+  const [erpConfig, enabledTools] = await Promise.all([
+    loadErpConfig(result.tenantId),
+    getEnabledTools(result.tenantId, result.allowedTools),
+  ]);
 
-  // Run handler within tenant context (includes ERP config)
+  // Run handler within tenant context (includes ERP config + enabled tools)
   await tenantStorage.run(
-    { tenantId: result.tenantId, keyId: result.keyId, erpConfig },
+    { tenantId: result.tenantId, keyId: result.keyId, erpConfig, enabledTools },
     handler
   );
 }

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { buildServer } from './server.js';
 import { createMcpServer } from './mcp/server.js';
 import { extractAndValidateApiKey } from './mcp/auth.js';
+import { getEnabledToolNames } from './context.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { startKbScheduler } from './kb/scheduler.js';
 
@@ -13,6 +14,11 @@ if (!process.env.DATABASE_URL) {
 
 if (!process.env.ADMIN_SECRET) {
   process.stderr.write('[pb-mcp] ERROR: ADMIN_SECRET environment variable is not set\n');
+  process.exit(1);
+}
+
+if (!process.env.JWT_SECRET) {
+  process.stderr.write('[pb-mcp] ERROR: JWT_SECRET environment variable is not set\n');
   process.exit(1);
 }
 
@@ -29,7 +35,8 @@ async function main(): Promise<void> {
   // POST /mcp — main JSON-RPC endpoint (initialize, tools/list, tools/call, etc.)
   server.post('/mcp', async (request, reply) => {
     await extractAndValidateApiKey(request, reply, async () => {
-      const mcpServer = createMcpServer();
+      const enabledTools = getEnabledToolNames();
+      const mcpServer = createMcpServer(enabledTools);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined, // stateless mode — no session ID
         enableJsonResponse: true,      // return direct JSON responses (not SSE) for POST requests
@@ -43,7 +50,8 @@ async function main(): Promise<void> {
   // GET /mcp — SSE endpoint for server-initiated messages (server push)
   server.get('/mcp', async (request, reply) => {
     await extractAndValidateApiKey(request, reply, async () => {
-      const mcpServer = createMcpServer();
+      const enabledTools = getEnabledToolNames();
+      const mcpServer = createMcpServer(enabledTools);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,
@@ -57,7 +65,8 @@ async function main(): Promise<void> {
   // DELETE /mcp — session termination
   server.delete('/mcp', async (request, reply) => {
     await extractAndValidateApiKey(request, reply, async () => {
-      const mcpServer = createMcpServer();
+      const enabledTools = getEnabledToolNames();
+      const mcpServer = createMcpServer(enabledTools);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,
