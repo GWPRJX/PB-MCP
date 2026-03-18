@@ -25,7 +25,7 @@
 
 ### v2 Phases
 
-- [ ] **Phase 5: Backend Services** - Complete tool access control, audit logging, JWT dashboard auth, API key expiry; apply pending migrations and write tests for all new backend services
+- [x] **Phase 5: Backend Services** - Complete tool access control, audit logging, JWT dashboard auth, API key expiry; apply pending migrations and write tests for all new backend services
 - [ ] **Phase 6: Admin Dashboard + Doc Upload** - Finish React admin dashboard with all management tabs, add API doc upload/management, wire production build serving
 - [ ] **Phase 7: Write Tools** - MCP write tools for stock adjustments, invoice creation/editing, and contact management via POSibolt POST API
 
@@ -42,7 +42,7 @@
 Plans:
 - [x] 05-01-PLAN.md — Apply migrations, update CI RLS checks, wire audit logging into all MCP tool handlers
 - [x] 05-02-PLAN.md — JWT auth login endpoint + middleware, API key expiry (migration 000009)
-- [ ] 05-03-PLAN.md — Integration tests for tool permissions, audit log, JWT auth, and key expiry
+- [x] 05-03-PLAN.md — Integration tests for tool permissions, audit log, JWT auth, and key expiry
 
 **Existing code**: Significant v2 backend code already exists in working tree (tool-permissions-service, audit-service, connection-tester, updated auth middleware, updated context). Migrations 000007 + 000008 written but not applied. Audit logging written but not wired into tool handlers.
 **Success Criteria** (what must be TRUE):
@@ -93,7 +93,7 @@ Plans:
 | 2. Tenant Management + MCP Shell | 4/4 | Complete | 2026-03-16 |
 | 3. ERP Domain Tools | 4/4 | Complete | 2026-03-17 |
 | 4. YouTrack KB Sync | 4/4 | Complete | 2026-03-17 |
-| 5. Backend Services | 2/3 | In progress | — |
+| 5. Backend Services | 3/3 | Complete | 2026-03-18 |
 | 6. Admin Dashboard + Doc Upload | 0/? | Not started | — |
 | 7. Write Tools | 0/? | Not started | — |
 
