@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Admin Dashboard + Write Operations
 current_phase: 6
-current_plan: 2
+current_plan: 3
 status: in-progress
-stopped_at: Completed 06-01-PLAN.md — next is 06-02
-last_updated: "2026-03-18T10:23:54Z"
+stopped_at: Completed 06-02-PLAN.md — Phase 6 complete, next is Phase 7
+last_updated: "2026-03-18T10:29:24Z"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # STATE: PB MCP
@@ -33,20 +33,20 @@ progress:
 ## Current Position
 
 **Milestone:** v2.0 — Admin Dashboard + Write Operations
-**Current Phase:** 6 (Admin Dashboard + Doc Upload)
-**Current Plan:** 06-02 (next to execute)
-**Status:** 06-01 complete, 06-02 pending
+**Current Phase:** 7 (Write Tools) -- next to plan
+**Current Plan:** N/A (Phase 7 not yet planned)
+**Status:** Phase 6 complete, Phase 7 pending planning
 
 **Progress:**
 ```
 v1.0 [██████████] 100% COMPLETE (4/4 phases, 16/16 plans)
-v2.0 [██████░░░░]  60%
+v2.0 [████████░░]  80%
 Phase 5 [██████████] 100% Backend Services (3/3 plans complete)
-Phase 6 [█████░░░░░]  50% Admin Dashboard + Doc Upload (1/2 plans complete)
+Phase 6 [██████████] 100% Admin Dashboard + Doc Upload (2/2 plans complete)
 Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 ```
 
-**Overall:** 1/3 v2 phases complete (4/5 plans executed)
+**Overall:** 2/3 v2 phases complete (5/5 plans executed)
 
 ---
 
@@ -55,7 +55,7 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 5 | Backend Services | TAC-01 to TAC-05, AUTH-01, AUTH-02 (7) | Complete (3/3 plans) |
-| 6 | Admin Dashboard + Doc Upload | DASH-01 to DASH-09, UPLOAD-01 to UPLOAD-04 (13) | In progress (1/2 plans) |
+| 6 | Admin Dashboard + Doc Upload | DASH-01 to DASH-09, UPLOAD-01 to UPLOAD-04 (13) | Complete (2/2 plans) |
 | 7 | Write Tools | WRITE-01 to WRITE-06 (6) | Not started |
 
 ---
@@ -81,7 +81,7 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 - ~~Audit logging wiring~~ DONE (05-01)
 - ~~JWT auth for dashboard~~ DONE (05-02)
 - ~~API key expiry~~ DONE (05-02)
-- Doc upload (backend + frontend)
+- ~~Doc upload (backend + frontend)~~ DONE (06-02)
 - Write tools
 - ~~Tests for all v2 features~~ DONE (05-03)
 - ~~CI updates~~ DONE (05-01)
@@ -99,9 +99,9 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 
 ### v2
 
-**Plans executed:** 4
-**Plans passed verification:** 4
-**Requirements completed:** 11/26
+**Plans executed:** 5
+**Plans passed verification:** 5
+**Requirements completed:** 15/26
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
@@ -109,6 +109,7 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 | 05-02 | ~3m | 2 | 10 |
 | 05-03 | 3m | 2 | 4 |
 | 06-01 | ~4m | 3 | 8 |
+| 06-02 | ~3m | 2 | 3 |
 
 ---
 
@@ -151,7 +152,7 @@ Phase 7 [░░░░░░░░░░]   0% Write Tools (not yet planned)
 |---|----------|---------------|
 | 1 | POSibolt write API endpoints: exact paths for stock adjustment, invoice creation, contact creation | Phase 7 planning (research needed) |
 | 2 | ~~JWT expiry duration: 1h, 8h, 24h?~~ RESOLVED: 8h default via JWT_EXPIRY_HOURS | 05-02 |
-| 3 | Doc upload size limit | Phase 6 planning |
+| 3 | ~~Doc upload size limit~~ RESOLVED: 1MB (1,048,576 chars) | 06-02 |
 
 ---
 
@@ -173,8 +174,8 @@ None.
 ## Session Continuity
 
 **Last session:** 2026-03-18
-**Stopped at:** Completed 06-01-PLAN.md (JWT auth + dashboard polish)
-**Next action:** Execute Phase 6 Plan 06-02 (doc upload + API Docs tab)
+**Stopped at:** Completed 06-02-PLAN.md (KB doc CRUD + API Docs tab) -- Phase 6 complete
+**Next action:** Plan Phase 7 (Write Tools)
 
 ---
 *State initialized: 2026-03-07*

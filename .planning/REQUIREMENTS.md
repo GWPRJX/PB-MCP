@@ -82,22 +82,22 @@
 
 ### Admin Dashboard (DASH)
 
-- **DASH-01**: Login page authenticates admin via JWT endpoint and stores session token
-- **DASH-02**: Tenant list view showing name, slug, plan, status, key count
-- **DASH-03**: Create tenant form with slug validation and one-time API key reveal
-- **DASH-04**: Tenant detail view with tabbed interface (Keys, Tools, ERP Config, Audit Log, API Docs)
-- **DASH-05**: API Keys tab — list active/revoked keys, create new keys, revoke keys, per-key tool scoping
-- **DASH-06**: Tool Permissions tab — toggle tools on/off per tenant with bulk enable/disable
-- **DASH-07**: ERP Config tab — update POSibolt connection credentials, test connection with live feedback
-- **DASH-08**: Audit Log tab — paginated tool call history, filterable by tool name and success/error status
-- **DASH-09**: Dashboard served as SPA by Fastify (@fastify/static) in production; Vite dev proxy in development
+- [x] **DASH-01**: Login page authenticates admin via JWT endpoint and stores session token
+- [x] **DASH-02**: Tenant list view showing name, slug, plan, status, key count
+- [x] **DASH-03**: Create tenant form with slug validation and one-time API key reveal
+- [x] **DASH-04**: Tenant detail view with tabbed interface (Keys, Tools, ERP Config, Audit Log, API Docs)
+- [x] **DASH-05**: API Keys tab — list active/revoked keys, create new keys, revoke keys, per-key tool scoping
+- [x] **DASH-06**: Tool Permissions tab — toggle tools on/off per tenant with bulk enable/disable
+- [x] **DASH-07**: ERP Config tab — update POSibolt connection credentials, test connection with live feedback
+- [x] **DASH-08**: Audit Log tab — paginated tool call history, filterable by tool name and success/error status
+- [x] **DASH-09**: Dashboard served as SPA by Fastify (@fastify/static) in production; Vite dev proxy in development
 
 ### API Doc Upload (UPLOAD)
 
-- **UPLOAD-01**: Admin can upload markdown API doc files via dashboard or REST endpoint
-- **UPLOAD-02**: Uploaded docs stored in kb_articles table (same schema as YouTrack-synced articles)
-- **UPLOAD-03**: Admin can list, view, edit, and delete uploaded API docs through dashboard
-- **UPLOAD-04**: Uploaded docs are searchable via existing `search_kb` and `get_kb_article` MCP tools
+- [x] **UPLOAD-01**: Admin can upload markdown API doc files via dashboard or REST endpoint
+- [x] **UPLOAD-02**: Uploaded docs stored in kb_articles table (same schema as YouTrack-synced articles)
+- [x] **UPLOAD-03**: Admin can list, view, edit, and delete uploaded API docs through dashboard
+- [x] **UPLOAD-04**: Uploaded docs are searchable via existing `search_kb` and `get_kb_article` MCP tools
 
 ### MCP Write Tools (WRITE)
 
@@ -180,19 +180,19 @@
 | TAC-05 | Phase 5 | Backend Services | Complete (05-01; 2026-03-18) |
 | AUTH-01 | Phase 5 | Backend Services | Complete (05-02; 2026-03-18) |
 | AUTH-02 | Phase 5 | Backend Services | Complete (05-02; 2026-03-18) |
-| DASH-01 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| DASH-02 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| DASH-03 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| DASH-04 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| DASH-05 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| DASH-06 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| DASH-07 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| DASH-08 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| DASH-09 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| UPLOAD-01 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| UPLOAD-02 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| UPLOAD-03 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
-| UPLOAD-04 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
+| DASH-01 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-01) |
+| DASH-02 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-01) |
+| DASH-03 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-01) |
+| DASH-04 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-02) |
+| DASH-05 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-01) |
+| DASH-06 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-01) |
+| DASH-07 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-01) |
+| DASH-08 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-01) |
+| DASH-09 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-01) |
+| UPLOAD-01 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-02) |
+| UPLOAD-02 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-02) |
+| UPLOAD-03 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-02) |
+| UPLOAD-04 | Phase 6 | Admin Dashboard + Doc Upload | Complete (06-02) |
 | WRITE-01 | Phase 7 | Write Tools | Pending |
 | WRITE-02 | Phase 7 | Write Tools | Pending |
 | WRITE-03 | Phase 7 | Write Tools | Pending |

@@ -26,7 +26,7 @@
 ### v2 Phases
 
 - [x] **Phase 5: Backend Services** - Complete tool access control, audit logging, JWT dashboard auth, API key expiry; apply pending migrations and write tests for all new backend services
-- [ ] **Phase 6: Admin Dashboard + Doc Upload** - Finish React admin dashboard with all management tabs, add API doc upload/management, wire production build serving
+- [x] **Phase 6: Admin Dashboard + Doc Upload** - Finish React admin dashboard with all management tabs, add API doc upload/management, wire production build serving
 - [ ] **Phase 7: Write Tools** - MCP write tools for stock adjustments, invoice creation/editing, and contact management via POSibolt POST API
 
 ---
@@ -58,7 +58,13 @@ Plans:
 **Goal**: Admin can manage all aspects of the MCP server through a polished React dashboard — tenants, keys, tool permissions, ERP config, audit logs, and API documentation upload
 **Depends on**: Phase 5
 **Requirements**: DASH-01, DASH-02, DASH-03, DASH-04, DASH-05, DASH-06, DASH-07, DASH-08, DASH-09, UPLOAD-01, UPLOAD-02, UPLOAD-03, UPLOAD-04
-**Existing code**: Dashboard scaffolded with Vite + React + Tailwind. Pages exist for login, tenant list, create tenant, tenant detail with tabs. API client wired. Needs JWT auth integration, doc upload feature, build/serve pipeline, polish.
+**Plans:** 2 plans
+
+Plans:
+- [x] 06-01-PLAN.md — JWT auth integration, key expiry/scoping UI, audit filters, build pipeline scripts
+- [x] 06-02-PLAN.md — KB doc CRUD backend endpoints, API Docs tab in dashboard
+
+**Existing code**: Dashboard scaffolded with Vite + React + Tailwind. Pages exist for login, tenant list, create tenant, tenant detail with tabs. API client wired. DASH-02, DASH-03, DASH-06, DASH-07 already complete in existing code. Needs JWT auth integration (DASH-01), key scoping UI (DASH-05), audit filters (DASH-08), doc upload (UPLOAD-*), build pipeline (DASH-09).
 **Success Criteria** (what must be TRUE):
   1. Dashboard login flow uses JWT endpoint from Phase 5; session persists across page refresh; expired JWT redirects to login
   2. Tenant list page loads all tenants with name, slug, plan, status, and key count; create tenant form validates slug and reveals API key once
@@ -94,7 +100,7 @@ Plans:
 | 3. ERP Domain Tools | 4/4 | Complete | 2026-03-17 |
 | 4. YouTrack KB Sync | 4/4 | Complete | 2026-03-17 |
 | 5. Backend Services | 3/3 | Complete | 2026-03-18 |
-| 6. Admin Dashboard + Doc Upload | 0/? | Not started | — |
+| 6. Admin Dashboard + Doc Upload | 2/2 | Complete | 2026-03-18 |
 | 7. Write Tools | 0/? | Not started | — |
 
 ---
@@ -210,9 +216,12 @@ Plans:
 | JWT via built-in crypto (no new deps) | Node.js crypto module handles HMAC-SHA256 for JWT signing; avoids adding jose/jsonwebtoken dependency |
 | JWT expiry default 8 hours | Configurable via JWT_EXPIRY_HOURS; 8h covers a workday session |
 | Login credentials reuse ADMIN_SECRET | ADMIN_USERNAME (default 'admin') + existing ADMIN_SECRET env var; no new secrets to manage |
+| DOC-* prefix for uploaded docs | Distinguishes uploaded docs from YouTrack-synced articles in shared kb_articles table; allows CRUD guards |
+| Doc content max 1MB | 1,048,576 character limit enforced at API level; prevents oversized payloads |
 
 ---
 *Roadmap created: 2026-03-07*
 *v1.0 complete: 2026-03-17 — 4 phases, 16 plans, 39/40 requirements delivered*
 *v2.0 started: 2026-03-18 — 3 phases, 26 requirements scoped*
 *Phase 5 planned: 2026-03-18 — 3 plans in 2 waves*
+*Phase 6 planned: 2026-03-18 — 2 plans in 2 waves*
