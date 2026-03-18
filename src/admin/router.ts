@@ -130,6 +130,8 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
                   status: { type: 'string' },
                   createdAt: { type: 'string', format: 'date-time' },
                   revokedAt: { type: 'string', format: 'date-time', nullable: true },
+                  expiresAt: { type: 'string', format: 'date-time', nullable: true },
+                  allowedTools: { type: 'array', items: { type: 'string' }, nullable: true },
                 },
               },
             },

@@ -1,0 +1,32 @@
+import { Link, useLocation } from 'react-router-dom';
+import { clearToken } from '../api';
+import type { ReactNode } from 'react';
+
+export function Layout({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
+  const location = useLocation();
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <Link to="/" className="text-lg font-semibold text-gray-900">
+            PB MCP Admin
+          </Link>
+          <Link
+            to="/tenants"
+            className={`text-sm ${location.pathname.startsWith('/tenants') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Tenants
+          </Link>
+        </div>
+        <button
+          onClick={() => { clearToken(); onLogout(); }}
+          className="text-sm text-gray-500 hover:text-gray-700"
+        >
+          Logout
+        </button>
+      </nav>
+      <main className="max-w-6xl mx-auto px-6 py-6">{children}</main>
+    </div>
+  );
+}

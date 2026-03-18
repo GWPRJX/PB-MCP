@@ -44,6 +44,8 @@ export interface ApiKeyRow {
   status: string;
   createdAt: Date;
   revokedAt: Date | null;
+  expiresAt: Date | null;
+  allowedTools: string[] | null;
 }
 
 export interface CreateTenantResult {
@@ -174,7 +176,8 @@ export async function getTenant(
     await txSql`SELECT set_config('app.current_tenant_id', ${id}, true)`;
     return txSql<ApiKeyRow[]>`
       SELECT id, tenant_id AS "tenantId", label, status,
-             created_at AS "createdAt", revoked_at AS "revokedAt"
+             created_at AS "createdAt", revoked_at AS "revokedAt",
+             expires_at AS "expiresAt", allowed_tools AS "allowedTools"
       FROM api_keys
       WHERE tenant_id = ${id}
       ORDER BY created_at DESC
