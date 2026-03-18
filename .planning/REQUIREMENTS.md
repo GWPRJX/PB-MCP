@@ -77,8 +77,8 @@
 
 ### Auth & Security (AUTH)
 
-- **AUTH-01**: Dashboard login returns a JWT with expiry; dashboard stores JWT (not raw admin secret) in localStorage
-- **AUTH-02**: API keys support optional expiry dates; expired keys are rejected at auth time with a clear error
+- [x] **AUTH-01**: Dashboard login returns a JWT with expiry; dashboard stores JWT (not raw admin secret) in localStorage
+- [x] **AUTH-02**: API keys support optional expiry dates; expired keys are rejected at auth time with a clear error
 
 ### Admin Dashboard (DASH)
 
@@ -178,8 +178,8 @@
 | TAC-03 | Phase 5 | Backend Services | Pending |
 | TAC-04 | Phase 5 | Backend Services | Pending |
 | TAC-05 | Phase 5 | Backend Services | Pending |
-| AUTH-01 | Phase 5 | Backend Services | Pending |
-| AUTH-02 | Phase 5 | Backend Services | Pending |
+| AUTH-01 | Phase 5 | Backend Services | Complete (05-02; 2026-03-18) |
+| AUTH-02 | Phase 5 | Backend Services | Complete (05-02; 2026-03-18) |
 | DASH-01 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
 | DASH-02 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
 | DASH-03 | Phase 6 | Admin Dashboard + Doc Upload | Pending |
