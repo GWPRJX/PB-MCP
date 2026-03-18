@@ -5,6 +5,7 @@ export interface TenantContext {
   tenantId: string;
   keyId: string;
   erpConfig: PosiboltConfig | null;
+  enabledTools: string[];
 }
 
 export const tenantStorage = new AsyncLocalStorage<TenantContext>();
@@ -36,6 +37,17 @@ export function getErpConfig(): PosiboltConfig {
     throw new Error('[context] Tenant has no ERP configuration — set it via admin API');
   }
   return ctx.erpConfig;
+}
+
+/**
+ * Get the list of enabled tools for this tenant+key from AsyncLocalStorage.
+ */
+export function getEnabledToolNames(): string[] {
+  const ctx = tenantStorage.getStore();
+  if (!ctx) {
+    throw new Error('[context] getEnabledToolNames() called outside tenant context');
+  }
+  return ctx.enabledTools;
 }
 
 /**
