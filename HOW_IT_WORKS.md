@@ -10,6 +10,8 @@ PB MCP is an HTTP server that exposes a company's ERP data (inventory, orders, i
 
 Multiple companies ("tenants") share a single running server and a single PostgreSQL database. Their data is kept separate by PostgreSQL Row-Level Security.
 
+An admin dashboard (React) provides a GUI for managing tenants, API keys, tool permissions, ERP configuration, audit logs, and API documentation. Admins can control which MCP tools each tenant or API key has access to, and every tool call is audit-logged.
+
 ---
 
 ## Technology Stack
@@ -34,18 +36,24 @@ Multiple companies ("tenants") share a single running server and a single Postgr
 pb mcp/
 ├── src/
 │   ├── index.ts              # Entry point — starts Fastify, registers /mcp routes, starts KB scheduler
-│   ├── server.ts             # Fastify factory — registers plugins and admin router
-│   ├── context.ts            # AsyncLocalStorage — propagates tenant ID across async call chain
+│   ├── server.ts             # Fastify factory — registers plugins, admin router, JWT login, dashboard static serving
+│   ├── context.ts            # AsyncLocalStorage — propagates tenant context (ID, ERP config, enabled tools)
 │   ├── admin/
-│   │   ├── router.ts         # Admin REST API routes (POST/GET/DELETE /admin/*)
-│   │   └── tenant-service.ts # All DB operations for tenants and API keys
+│   │   ├── router.ts         # Admin REST API routes (18 endpoints: tenants, keys, tools, ERP, audit, KB docs)
+│   │   ├── tenant-service.ts # DB operations for tenants and API keys (incl. expiry + allowed_tools)
+│   │   ├── auth-middleware.ts # JWT signing/verification (HS256) + jwtAuthHook (JWT or X-Admin-Secret)
+│   │   ├── tool-permissions-service.ts # Tenant + per-key tool access control
+│   │   ├── audit-service.ts  # recordToolCall (fire-and-forget) + queryAuditLog
+│   │   └── connection-tester.ts # POSibolt ERP connection test
 │   ├── db/
 │   │   ├── client.ts         # Two postgres.js pools + withTenantContext helper
 │   │   ├── schema.ts         # Drizzle table definitions (TypeScript types for all tables)
 │   │   └── check-pending.ts  # Startup check: warns if unapplied migrations exist
 │   ├── mcp/
-│   │   ├── auth.ts           # Per-request API key validation middleware
-│   │   └── server.ts         # createMcpServer() — registers all 21 tools
+│   │   ├── auth.ts           # Per-request API key validation (incl. expiry check, tool filtering, audit logging)
+│   │   └── server.ts         # createMcpServer() — registers 21 tools with optional filter
+│   ├── posibolt/
+│   │   └── client.ts         # POSibolt REST API client (OAuth token caching, pbGet/pbPost)
 │   ├── tools/
 │   │   ├── errors.ts         # toolSuccess() / toolError() response helpers
 │   │   ├── inventory.ts      # 7 inventory tools (list_products, get_product, etc.)
@@ -55,13 +63,28 @@ pb mcp/
 │   └── kb/
 │       ├── sync.ts           # syncKbArticles() — fetches from YouTrack and caches locally
 │       └── scheduler.ts      # startKbScheduler() — runs sync on a configurable interval
+├── dashboard/                # React admin dashboard (Vite + React 19 + Tailwind v4 + React Router v7)
+│   └── src/
+│       ├── App.tsx           # Root component — JWT auth check, routing
+│       ├── api.ts            # API client — JWT token management, all admin API functions
+│       ├── components/
+│       │   └── Layout.tsx    # Navigation shell with logout
+│       └── pages/
+│           ├── LoginPage.tsx       # Username + password → JWT login
+│           ├── TenantsPage.tsx     # Tenant list
+│           ├── CreateTenantPage.tsx # New tenant form
+│           └── TenantDetailPage.tsx # 5-tab detail: Keys, Tools, ERP, Audit, API Docs
 ├── db/
 │   └── migrations/           # SQL migration files (golang-migrate format)
 │       ├── 000001_create_roles.up.sql
 │       ├── 000002_create_tenants.up.sql
 │       ├── 000003_create_api_keys.up.sql
 │       ├── 000004_create_erp_tables.up.sql
-│       └── 000005_create_kb_articles.up.sql
+│       ├── 000005_create_kb_articles.up.sql
+│       ├── 000006_add_erp_config.up.sql
+│       ├── 000007_create_tool_permissions.up.sql
+│       ├── 000008_create_audit_log.up.sql
+│       └── 000009_add_api_key_expiry.up.sql
 ├── scripts/
 │   └── assert-rls.sh         # CI gate: fails if any tenant table lacks an RLS policy
 └── .github/workflows/ci.yml  # GitHub Actions: run migrations + RLS check + test suite
@@ -86,11 +109,15 @@ Fastify route handler (src/index.ts)
   │     2. SHA-256 hash the key
   │     3. Open short-lived superuser pool → SELECT from api_keys WHERE key_hash = $hash
   │     4. If not found or revoked → reply 401, return
-  │     5. tenantStorage.run({ tenantId, keyId }, handler)   ← set AsyncLocalStorage context
+  │     5. If expired (expires_at < NOW()) → reply 401 "API key expired", return
+  │     6. Load ERP config from tenants table
+  │     7. Load enabled tools: getEnabledTools(tenantId, allowedTools)
+  │        (intersection of tenant-level permissions and per-key restrictions)
+  │     8. tenantStorage.run({ tenantId, keyId, erpConfig, enabledTools }, handler)
   │
   └─ handler() — now inside tenant context
         │
-        ├─ createMcpServer()          ← fresh McpServer with all 21 tools registered
+        ├─ createMcpServer(enabledTools)  ← only registers tools this key is allowed to use
         ├─ new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
         ├─ mcpServer.connect(transport)
         ├─ transport.handleRequest(request.raw, reply.raw, request.body)
@@ -99,7 +126,8 @@ Fastify route handler (src/index.ts)
               ▼
         MCP SDK dispatches tools/call → list_products handler
               │
-              ├─ getTenantId()         ← reads from AsyncLocalStorage (set in step 5)
+              ├─ getTenantId()         ← reads from AsyncLocalStorage
+              ├─ recordToolCall(...)   ← audit log (fire-and-forget, non-blocking)
               ├─ withTenantContext(tenantId, async (tx) => {
               │     await tx`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`
               │     return tx`SELECT ... FROM products WHERE ...`   ← RLS applies
@@ -107,16 +135,29 @@ Fastify route handler (src/index.ts)
               └─ return toolSuccess({ items, total_count, next_cursor })
 ```
 
-### Admin Request (operator → tenant management)
+### Admin Request (operator / dashboard → tenant management)
 
 ```
-Operator / deployment script
+Dashboard or curl
   │
-  │  POST /admin/tenants  (headers: X-Admin-Secret: secret)
+  │  POST /admin/auth/login   (body: { username, password })
   ▼
-Fastify onRequest hook (checkAdminAuth in src/admin/router.ts)
-  │  Compare X-Admin-Secret against process.env.ADMIN_SECRET
-  │  → 401 if missing or wrong
+Login handler (src/server.ts) — unprotected
+  │  Compare username vs ADMIN_USERNAME, password vs ADMIN_SECRET
+  │  → 401 if wrong
+  │  → signJwt({ sub: 'admin' }) using HS256 + JWT_SECRET
+  ▼
+Reply: { token: "eyJ..." }   ← JWT valid for JWT_EXPIRY_HOURS (default 8h)
+
+
+Dashboard or curl
+  │
+  │  POST /admin/tenants  (headers: Authorization: Bearer TOKEN)
+  ▼
+Fastify onRequest hook (jwtAuthHook in src/admin/auth-middleware.ts)
+  │  1. Check Authorization: Bearer → verify JWT signature + expiry
+  │  2. Fallback: check X-Admin-Secret header
+  │  → 401 if neither valid
   ▼
 Route handler → tenant-service.createTenant()
   │  Single transaction:
@@ -144,16 +185,21 @@ Two roles are created. The application **never** runs as the superuser:
 
 ### Tables
 
-**`tenants`** (migration 000002) — no RLS, this is the tenant registry itself
+**`tenants`** (migrations 000002 + 000006) — no RLS, this is the tenant registry itself
 ```sql
-id UUID, name TEXT, slug TEXT UNIQUE, plan TEXT, status TEXT, created_at, updated_at
+id UUID, name TEXT, slug TEXT UNIQUE, plan TEXT, status TEXT, created_at, updated_at,
+erp_base_url TEXT, erp_client_id TEXT, erp_app_secret TEXT, erp_username TEXT, erp_password TEXT, erp_terminal TEXT
 ```
+ERP config columns (000006) store POSibolt connection details per tenant. All nullable.
 
-**`api_keys`** (migration 000003) — RLS enabled + FORCE
+**`api_keys`** (migrations 000003 + 000007 + 000009) — RLS enabled + FORCE
 ```sql
-id UUID, tenant_id UUID→tenants, key_hash TEXT UNIQUE, label TEXT, status TEXT, created_at, revoked_at
+id UUID, tenant_id UUID→tenants, key_hash TEXT UNIQUE, label TEXT, status TEXT,
+created_at, revoked_at, expires_at TIMESTAMPTZ, allowed_tools TEXT[]
 ```
-RLS policy: `tenant_id = current_setting('app.current_tenant_id', true)::uuid`
+- `expires_at` (000009): optional key expiry — NULL means never expires
+- `allowed_tools` (000007): per-key tool restrictions — NULL means inherit tenant defaults
+- RLS policy: `tenant_id = current_setting('app.current_tenant_id', true)::uuid`
 
 **ERP tables** (migration 000004) — all have RLS, all scoped to `tenant_id`
 - `products` — SKU, name, price, description
@@ -168,6 +214,21 @@ RLS policy: `tenant_id = current_setting('app.current_tenant_id', true)::uuid`
 ```sql
 id UUID, youtrack_id TEXT UNIQUE, summary TEXT, content TEXT, tags TEXT[], synced_at TIMESTAMPTZ, content_hash TEXT
 ```
+YouTrack-synced articles have `P8-A-*` IDs. Admin-uploaded docs have `DOC-*` IDs.
+
+**`tool_permissions`** (migration 000007) — RLS enabled + FORCE
+```sql
+id UUID, tenant_id UUID→tenants, tool_name TEXT, enabled BOOLEAN DEFAULT true, created_at, updated_at
+UNIQUE(tenant_id, tool_name)
+```
+Controls which MCP tools are available per tenant. If no row exists for a tool, it defaults to enabled.
+
+**`audit_log`** (migration 000008) — RLS enabled + FORCE, append-only
+```sql
+id UUID, tenant_id UUID→tenants, key_id UUID→api_keys, tool_name TEXT, params JSONB,
+status TEXT ('success'|'error'), error_message TEXT, duration_ms INTEGER, created_at TIMESTAMPTZ
+```
+Records every MCP tool call. Indexed on `(tenant_id, created_at DESC)`. App role has SELECT + INSERT only.
 
 ---
 
@@ -196,12 +257,16 @@ CREATE POLICY tenant_isolation ON foo
 
 1. **Generation**: `'pb_' + randomBytes(32).toString('hex')` → 67-character string
 2. **Storage**: SHA-256 hash stored in `api_keys.key_hash`. Raw key returned once and discarded.
-3. **Validation** (every MCP request):
+3. **Optional expiry**: Keys can have an `expires_at` timestamp. NULL means never expires.
+4. **Validation** (every MCP request):
    - SHA-256 the incoming `X-Api-Key` header
    - Open a short-lived superuser pool (`DATABASE_MIGRATION_URL`) to query `api_keys` without RLS context (we don't know the tenant yet)
-   - If found and `status = 'active'` → proceed; otherwise 401
-4. **Context propagation**: `tenantStorage.run({ tenantId, keyId }, handler)` — AsyncLocalStorage ensures `getTenantId()` works anywhere in the async call chain without passing arguments through every function
-5. **Revocation**: `UPDATE api_keys SET status='revoked' WHERE id=:keyId`. Takes effect immediately on the next request.
+   - If not found or `status != 'active'` → 401
+   - If `expires_at` is set and past → 401 "API key expired"
+   - Load the key's `allowed_tools` array (per-key tool restrictions)
+5. **Context propagation**: `tenantStorage.run({ tenantId, keyId, erpConfig, enabledTools }, handler)` — AsyncLocalStorage ensures context works anywhere in the async call chain
+6. **Tool filtering**: `getEnabledTools(tenantId, allowedTools)` returns the intersection of tenant-level permissions and per-key restrictions. Only these tools are registered on the MCP server for this request.
+7. **Revocation**: `UPDATE api_keys SET status='revoked' WHERE id=:keyId`. Takes effect immediately on the next request.
 
 ---
 
@@ -301,16 +366,61 @@ The KB sync system keeps a local cache of YouTrack articles so MCP tool queries 
 
 ## Admin API
 
-All routes under `/admin` require `X-Admin-Secret` header. The Scalar-generated UI at `/docs` documents all endpoints interactively.
+All routes under `/admin` require authentication — either `Authorization: Bearer JWT` or `X-Admin-Secret` header. The login endpoint is unprotected. The Scalar-generated UI at `/docs` documents all endpoints interactively.
+
+### Authentication
+
+| Method | Path | Action |
+|--------|------|--------|
+| `POST` | `/admin/auth/login` | Authenticate with username + password → returns `{ token }` (JWT) |
+
+### Tenant Management
 
 | Method | Path | Action |
 |--------|------|--------|
 | `POST` | `/admin/tenants` | Create tenant → returns `{ tenantId, apiKey }` |
 | `GET` | `/admin/tenants` | List all tenants with active key count |
-| `GET` | `/admin/tenants/:id` | Tenant detail with key metadata |
-| `POST` | `/admin/tenants/:id/keys` | Issue additional API key |
+| `GET` | `/admin/tenants/:id` | Tenant detail with keys (incl. expiresAt, allowedTools) |
+
+### API Key Management
+
+| Method | Path | Action |
+|--------|------|--------|
+| `POST` | `/admin/tenants/:id/keys` | Issue API key (optional expiresAt) |
 | `DELETE` | `/admin/tenants/:id/keys/:keyId` | Revoke API key |
-| `POST` | `/admin/kb/refresh` | Trigger immediate KB sync |
+| `PUT` | `/admin/tenants/:id/keys/:keyId/tools` | Set per-key tool restrictions (null = inherit) |
+
+### Tool Permissions
+
+| Method | Path | Action |
+|--------|------|--------|
+| `GET` | `/admin/tenants/:id/tools` | Get tool permissions (enabled/disabled per tool) |
+| `PUT` | `/admin/tenants/:id/tools` | Update tenant-level tool permissions |
+| `GET` | `/admin/tools` | List all 21 available MCP tool names |
+
+### ERP Configuration
+
+| Method | Path | Action |
+|--------|------|--------|
+| `PUT` | `/admin/tenants/:id/erp-config` | Update POSibolt connection details |
+| `POST` | `/admin/tenants/:id/test-connection` | Test POSibolt ERP connection |
+
+### Audit Log
+
+| Method | Path | Action |
+|--------|------|--------|
+| `GET` | `/admin/tenants/:id/audit-log` | Query audit log (filters: toolName, status, limit, offset) |
+
+### KB / Documentation
+
+| Method | Path | Action |
+|--------|------|--------|
+| `POST` | `/admin/kb/refresh` | Trigger immediate YouTrack KB sync |
+| `POST` | `/admin/kb/upload` | Upload API doc (markdown, DOC-* ID) |
+| `GET` | `/admin/kb/docs` | List uploaded docs (pagination) |
+| `GET` | `/admin/kb/docs/:id` | Get single doc with full content |
+| `PUT` | `/admin/kb/docs/:id` | Update uploaded doc (title, content, tags) |
+| `DELETE` | `/admin/kb/docs/:id` | Delete uploaded doc (DOC-* only) |
 
 ---
 
@@ -329,10 +439,70 @@ Fastify's built-in logger is disabled (`logger: false`). All log lines use `proc
 1. Start `postgres:17-alpine` service container
 2. `npm ci`
 3. Install `golang-migrate` binary
-4. Run all migrations against the test database
+4. Run all 9 migrations against the test database
 5. Create `app_user` / `app_login` roles and grant permissions
-6. **Run `assert-rls.sh`** — fails the build if any tenant-bearing table lacks an RLS policy
-7. `npm test` — runs the full vitest suite (107 tests)
+6. **Run `assert-rls.sh`** — fails the build if any tenant-bearing table (including `tool_permissions` and `audit_log`) lacks an RLS policy
+7. `npm test` — runs the full vitest suite (18 test files covering DB, admin, MCP, tools, KB, and smoke tests)
+
+Environment variables set for CI: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `ADMIN_SECRET`, `JWT_SECRET`.
+
+---
+
+## Tool Access Control
+
+Admins can restrict which MCP tools a tenant or specific API key has access to. The system has two layers:
+
+**Tenant-level permissions** (`tool_permissions` table): Controls which of the 21 tools are available to a tenant. All tools default to enabled. An admin disables specific tools via `PUT /admin/tenants/:id/tools`.
+
+**Per-key restrictions** (`api_keys.allowed_tools` column): Further restricts a specific API key to a subset of tools. NULL means "inherit tenant defaults". When set, the MCP session only sees the **intersection** of tenant-enabled tools and key-allowed tools.
+
+The filter is applied at MCP server creation time — `createMcpServer(enabledTools)` only registers tools in the enabled set. Disabled tools don't appear in `tools/list` and can't be called.
+
+---
+
+## Audit Logging
+
+Every MCP tool call is recorded in the `audit_log` table:
+
+- **What's logged**: tenant_id, key_id, tool_name, params (JSONB), status (success/error), error_message, duration_ms, created_at
+- **Recording**: Fire-and-forget via `recordToolCall()` — audit insert never blocks the tool response
+- **Querying**: `GET /admin/tenants/:id/audit-log` with optional filters (toolName, status) and pagination
+- **Security**: RLS-enforced, append-only (app role has INSERT + SELECT only, no UPDATE/DELETE)
+- **Dashboard**: Audit Log tab shows paginated entries with tool name and status filter dropdowns
+
+---
+
+## Admin Dashboard
+
+A React single-page application served at `/dashboard/` provides a GUI for all admin operations.
+
+**Stack**: Vite + React 19 + Tailwind CSS v4 + React Router v7
+
+**Authentication**: Username + password → `POST /admin/auth/login` → JWT stored in localStorage. All API calls use `Authorization: Bearer` header. Expired JWT redirects to login.
+
+**Pages**:
+- **Login** — username (default: admin) + password
+- **Tenant List** — name, slug, plan, status, key count, creation date
+- **Create Tenant** — slug validation, one-time API key reveal
+- **Tenant Detail** — 5 tabs:
+  - **API Keys** — create with optional expiry, revoke, per-key tool scoping (expandable rows)
+  - **Tool Permissions** — toggle on/off per tool, bulk enable/disable, save
+  - **ERP Config** — 6 POSibolt fields, save + test connection
+  - **Audit Log** — paginated list with tool name and status filter dropdowns
+  - **API Docs** — upload/edit/delete markdown docs, paginated list
+
+**Serving**: In production, `@fastify/static` serves `dashboard/dist/` with SPA fallback. In development, use `npm run dashboard:dev` (Vite dev server on port 5173 with proxy to backend).
+
+---
+
+## KB Doc Upload
+
+Admins can upload markdown API documentation via the dashboard or `POST /admin/kb/upload`. Uploaded docs are stored in the existing `kb_articles` table with a `DOC-` prefix on the `youtrack_id` field (e.g., `DOC-a1b2c3d4`) to distinguish them from YouTrack-synced articles (`P8-A-*`).
+
+- **Upload**: title + markdown content + optional tags → stored with SHA-256 content hash
+- **Edit/Delete**: Only DOC-* prefixed docs can be modified or deleted (protects YouTrack-synced articles)
+- **Searchable immediately**: The existing `search_kb` and `get_kb_article` MCP tools query all rows in `kb_articles` — no code changes needed for uploaded docs to be discoverable by AI clients
+- **Size limit**: 1MB (1,048,576 characters) per document
 
 ---
 
@@ -347,3 +517,9 @@ Fastify's built-in logger is disabled (`logger: false`). All log lines use `proc
 **Why `AsyncLocalStorage` instead of passing tenant ID as an argument?** Tool handler functions are registered with the MCP SDK's `server.tool()` API. The SDK calls them directly — there's no way to inject parameters into that call. AsyncLocalStorage propagates context through the async chain without modifying function signatures.
 
 **Why `SET LOCAL` (transaction-scoped) instead of `SET` (session-scoped)?** Connection pools reuse connections. A `SET` without `LOCAL` would persist the tenant ID on a connection until explicitly cleared, creating a risk of one tenant seeing another's data on a reused connection. `SET LOCAL` is cleared automatically on transaction commit or rollback.
+
+**Why JWT via built-in Node.js crypto instead of jsonwebtoken/jose?** HS256 signing is straightforward with `crypto.createHmac()`. Avoiding a JWT library keeps the dependency count low and the implementation auditable.
+
+**Why fire-and-forget audit logging?** Audit inserts should never slow down tool responses. `recordToolCall()` runs the INSERT without awaiting it — if it fails, the tool response is unaffected.
+
+**Why store uploaded docs in kb_articles instead of a separate table?** The `search_kb` and `get_kb_article` MCP tools already query `kb_articles`. Storing uploaded docs there means zero code changes for searchability. The `DOC-*` prefix on `youtrack_id` distinguishes uploaded docs from YouTrack-synced ones.

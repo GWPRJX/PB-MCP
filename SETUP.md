@@ -113,10 +113,22 @@ MIGRATION_ALERT=true
 NODE_ENV=production   # use "development" for local dev (enables more verbose errors)
 PORT=3000             # change if 3000 is already in use on your server
 
-# Admin API secret — protects all /admin/* endpoints.
+# Admin API secret — protects all /admin/* endpoints (also used as the login password).
 # Generate with: openssl rand -hex 32
 # Treat this like a root password — keep it out of logs and chat history.
 ADMIN_SECRET=CHANGE_THIS_TO_A_STRONG_RANDOM_SECRET
+
+# Admin login username for the dashboard. Default: admin
+ADMIN_USERNAME=admin
+
+# ── JWT (Dashboard Authentication) ───────────────────────────────────────────
+
+# Secret key for signing JWT tokens. Generate with: openssl rand -hex 32
+# Required — the server will not start without it.
+JWT_SECRET=CHANGE_THIS_TO_A_DIFFERENT_RANDOM_SECRET
+
+# How long JWT tokens remain valid, in hours. Default: 8 (one workday).
+JWT_EXPIRY_HOURS=8
 
 # ── YOUTRACK KB SYNC (optional) ───────────────────────────────────────────────
 
@@ -144,7 +156,10 @@ KB_SYNC_INTERVAL_MS=1800000
 |----------|---------|-----------|
 | `DATABASE_URL` | Every ERP tool query, MCP auth | Server exits immediately |
 | `DATABASE_MIGRATION_URL` | Migrations, auth key lookups, admin tenant list | Server exits; auth lookups return 401 |
-| `ADMIN_SECRET` | `POST/GET/DELETE /admin/*` routes | Server exits immediately |
+| `ADMIN_SECRET` | Admin endpoints (auth fallback), dashboard login password | Server exits immediately |
+| `JWT_SECRET` | JWT token signing/verification for dashboard auth | Server exits immediately |
+| `JWT_EXPIRY_HOURS` | JWT token lifetime | Defaults to 8 hours |
+| `ADMIN_USERNAME` | Dashboard login username | Defaults to `admin` |
 | `YOUTRACK_TOKEN` | KB sync worker | Sync skips with a warning; server still starts |
 | `YOUTRACK_BASE_URL` | KB sync worker | Same as above |
 
@@ -158,7 +173,7 @@ Migrations create all tables, roles, and RLS policies. Run them as the superuser
 npm run migrate:up
 ```
 
-This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The five migrations execute in order:
+This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The nine migrations execute in order:
 
 | Migration | What it creates |
 |-----------|----------------|
@@ -167,6 +182,10 @@ This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The five migrations
 | `000003` | `api_keys` table with RLS policies |
 | `000004` | ERP tables: products, stock_levels, suppliers, contacts, orders, order_line_items, invoices — all with RLS |
 | `000005` | `kb_articles` table (global cache, no RLS) |
+| `000006` | ERP config columns on tenants (erp_base_url, erp_client_id, erp_app_secret, erp_username, erp_password, erp_terminal) |
+| `000007` | `tool_permissions` table (RLS) + `allowed_tools` column on api_keys |
+| `000008` | `audit_log` table (append-only, RLS) |
+| `000009` | `expires_at` column on api_keys (optional key expiry) |
 
 **Set the app_login password to match DATABASE_URL:**
 
@@ -193,7 +212,7 @@ psql "$DATABASE_MIGRATION_URL" -c "
 
 ```bash
 npm run migrate:status
-# Should print: Version: 5 (the latest migration number)
+# Should print: Version: 9 (the latest migration number)
 ```
 
 ---
@@ -209,7 +228,7 @@ export NODE_ENV=test   # or: set NODE_ENV=test on Windows
 npm test
 ```
 
-Expected output: `107 passed` (14 test files). If any test fails, the most common cause is a misconfigured database connection or missing role permissions.
+Expected output: all tests pass across 18 test files (DB, admin, MCP, tools, KB, smoke). If any test fails, the most common cause is a misconfigured database connection or missing role permissions.
 
 ---
 
@@ -252,7 +271,7 @@ If `YOUTRACK_BASE_URL` or `YOUTRACK_TOKEN` are not set:
 
 ## Step 8 — Create your first tenant
 
-The server is now running. Create a tenant to get an API key:
+The server is now running. Create a tenant to get an API key. You can use the dashboard at `http://localhost:3000/dashboard/` or curl:
 
 ```bash
 curl -s -X POST http://localhost:3000/admin/tenants \
@@ -323,50 +342,128 @@ Open MCP Inspector in a browser and connect to:
 
 ## Admin Operations Reference
 
-All admin endpoints require `X-Admin-Secret: YOUR_ADMIN_SECRET` header.
+Admin endpoints accept either `Authorization: Bearer JWT_TOKEN` or `X-Admin-Secret: YOUR_ADMIN_SECRET` header.
+
+### Login (get a JWT token)
+
+```bash
+curl -s -X POST http://localhost:3000/admin/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "YOUR_ADMIN_SECRET"}' | jq .
+# Returns: { "token": "eyJ..." }
+```
+
+Use the returned token as `Authorization: Bearer TOKEN` for all subsequent requests.
 
 ### List all tenants
 
 ```bash
 curl -s http://localhost:3000/admin/tenants \
-  -H "X-Admin-Secret: YOUR_ADMIN_SECRET" | jq .
+  -H "Authorization: Bearer TOKEN" | jq .
 ```
 
 ### Get a specific tenant
 
 ```bash
 curl -s http://localhost:3000/admin/tenants/TENANT_ID \
-  -H "X-Admin-Secret: YOUR_ADMIN_SECRET" | jq .
+  -H "Authorization: Bearer TOKEN" | jq .
 ```
+
+Returns tenant details including API keys with `expiresAt` and `allowedTools` fields.
 
 ### Issue an additional API key
 
 ```bash
 curl -s -X POST http://localhost:3000/admin/tenants/TENANT_ID/keys \
   -H "Content-Type: application/json" \
-  -H "X-Admin-Secret: YOUR_ADMIN_SECRET" \
-  -d '{"label": "Claude Desktop - Production"}' | jq .
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"label": "Claude Desktop - Production", "expiresAt": "2026-12-31T23:59:59Z"}' | jq .
 ```
+
+`expiresAt` is optional — omit it for keys that never expire.
 
 ### Revoke an API key
 
 ```bash
 curl -s -X DELETE http://localhost:3000/admin/tenants/TENANT_ID/keys/KEY_ID \
-  -H "X-Admin-Secret: YOUR_ADMIN_SECRET"
+  -H "Authorization: Bearer TOKEN"
 # Returns 204 No Content on success
 ```
+
+### Manage tool permissions
+
+```bash
+# Get current permissions
+curl -s http://localhost:3000/admin/tenants/TENANT_ID/tools \
+  -H "Authorization: Bearer TOKEN" | jq .
+
+# Update permissions (disable specific tools)
+curl -s -X PUT http://localhost:3000/admin/tenants/TENANT_ID/tools \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"tools": {"list_products": true, "get_product": true, "list_orders": false}}' | jq .
+
+# Set per-key tool restrictions (null = inherit tenant defaults)
+curl -s -X PUT http://localhost:3000/admin/tenants/TENANT_ID/keys/KEY_ID/tools \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"allowedTools": ["list_products", "get_product"]}' | jq .
+```
+
+### Configure ERP connection
+
+```bash
+curl -s -X PUT http://localhost:3000/admin/tenants/TENANT_ID/erp-config \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"erpBaseUrl": "https://erp.example.com", "erpClientId": "...", "erpAppSecret": "...", "erpUsername": "...", "erpPassword": "...", "erpTerminal": "..."}' | jq .
+
+# Test the connection
+curl -s -X POST http://localhost:3000/admin/tenants/TENANT_ID/test-connection \
+  -H "Authorization: Bearer TOKEN" | jq .
+```
+
+### Query audit log
+
+```bash
+curl -s "http://localhost:3000/admin/tenants/TENANT_ID/audit-log?limit=25&toolName=list_products&status=success" \
+  -H "Authorization: Bearer TOKEN" | jq .
+```
+
+### Upload API documentation
+
+```bash
+curl -s -X POST http://localhost:3000/admin/kb/upload \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"title": "API Guide", "content": "# Markdown content here", "tags": ["api", "guide"]}' | jq .
+```
+
+Uploaded docs are stored in `kb_articles` with a `DOC-*` prefix and are immediately searchable via the `search_kb` and `get_kb_article` MCP tools.
 
 ### Trigger immediate KB sync
 
 ```bash
 curl -s -X POST http://localhost:3000/admin/kb/refresh \
-  -H "X-Admin-Secret: YOUR_ADMIN_SECRET" | jq .
+  -H "Authorization: Bearer TOKEN" | jq .
 # Returns: { "synced": true, "article_count": 50 }
+```
+
+### List all available tools
+
+```bash
+curl -s http://localhost:3000/admin/tools \
+  -H "Authorization: Bearer TOKEN" | jq .
+# Returns: ["list_products", "get_product", ...]
 ```
 
 ### Interactive API docs
 
 Open `http://localhost:3000/docs` in a browser. Scalar generates an interactive UI from the OpenAPI schema — you can test all admin endpoints from there.
+
+### Admin dashboard
+
+Open `http://localhost:3000/dashboard/` in a browser. The React dashboard provides a GUI for all admin operations: managing tenants, API keys (with expiry and per-key tool scoping), tool permissions, ERP configuration, audit logs, and API documentation upload.
 
 ---
 
@@ -410,10 +507,10 @@ The server exits immediately if `DATABASE_URL` is missing. Check that your `.env
 Same as above — `ADMIN_SECRET` is required at startup.
 
 ### 401 on admin endpoints
-The `X-Admin-Secret` header value doesn't match `ADMIN_SECRET` in `.env`. Values are compared as exact strings — no trailing spaces or quotes.
+Either the JWT token is expired/invalid, or the `X-Admin-Secret` header doesn't match. Log in again via `POST /admin/auth/login` to get a fresh token.
 
 ### 401 on MCP endpoints
-Either the API key is wrong, revoked, or the `X-Api-Key` header is missing. Verify with `GET /admin/tenants/:id` to check key status.
+Either the API key is wrong, revoked, expired, or the `X-Api-Key` header is missing. Check `GET /admin/tenants/:id` to see key status and `expiresAt`. Expired keys return `"API key expired"`.
 
 ### "permission denied for table products" (or similar)
 The `app_login` role is missing grants. Run:
