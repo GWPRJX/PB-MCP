@@ -37,6 +37,13 @@
 **Goal**: All v2 backend services are migrated, tested, and production-ready — tool access control filters MCP tools per tenant/key, audit log records every tool call, dashboard auth uses JWT, and API keys support expiry
 **Depends on**: v1 complete (Phases 1-4)
 **Requirements**: TAC-01, TAC-02, TAC-03, TAC-04, TAC-05, AUTH-01, AUTH-02
+**Plans:** 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Apply migrations, update CI RLS checks, wire audit logging into all MCP tool handlers
+- [ ] 05-02-PLAN.md — JWT auth login endpoint + middleware, API key expiry (migration 000009)
+- [ ] 05-03-PLAN.md — Integration tests for tool permissions, audit log, JWT auth, and key expiry
+
 **Existing code**: Significant v2 backend code already exists in working tree (tool-permissions-service, audit-service, connection-tester, updated auth middleware, updated context). Migrations 000007 + 000008 written but not applied. Audit logging written but not wired into tool handlers.
 **Success Criteria** (what must be TRUE):
   1. Migrations 000007 (tool_permissions) and 000008 (audit_log) applied; CI updated to include them
@@ -86,7 +93,7 @@
 | 2. Tenant Management + MCP Shell | 4/4 | Complete | 2026-03-16 |
 | 3. ERP Domain Tools | 4/4 | Complete | 2026-03-17 |
 | 4. YouTrack KB Sync | 4/4 | Complete | 2026-03-17 |
-| 5. Backend Services | 0/? | Not started | — |
+| 5. Backend Services | 0/3 | Planned | — |
 | 6. Admin Dashboard + Doc Upload | 0/? | Not started | — |
 | 7. Write Tools | 0/? | Not started | — |
 
@@ -200,8 +207,12 @@
 | Phase 5 before Phase 6 | Dashboard needs JWT auth and working backend services before frontend can be completed |
 | Write tools in Phase 7 | Requires Phase 5 (audit logging) and benefits from Phase 6 (dashboard for testing/permissions) |
 | 3 phases for v2 | Backend services → Dashboard + Upload → Write tools; clean dependency chain |
+| JWT via built-in crypto (no new deps) | Node.js crypto module handles HMAC-SHA256 for JWT signing; avoids adding jose/jsonwebtoken dependency |
+| JWT expiry default 8 hours | Configurable via JWT_EXPIRY_HOURS; 8h covers a workday session |
+| Login credentials reuse ADMIN_SECRET | ADMIN_USERNAME (default 'admin') + existing ADMIN_SECRET env var; no new secrets to manage |
 
 ---
 *Roadmap created: 2026-03-07*
 *v1.0 complete: 2026-03-17 — 4 phases, 16 plans, 39/40 requirements delivered*
 *v2.0 started: 2026-03-18 — 3 phases, 26 requirements scoped*
+*Phase 5 planned: 2026-03-18 — 3 plans in 2 waves*
