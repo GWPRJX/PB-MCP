@@ -27,7 +27,7 @@
 
 - [x] **Phase 5: Backend Services** - Complete tool access control, audit logging, JWT dashboard auth, API key expiry; apply pending migrations and write tests for all new backend services
 - [x] **Phase 6: Admin Dashboard + Doc Upload** - Finish React admin dashboard with all management tabs, add API doc upload/management, wire production build serving
-- [ ] **Phase 7: Write Tools** - MCP write tools for stock adjustments, invoice creation/editing, and contact management via POSibolt POST API
+- [x] **Phase 7: Write Tools** - MCP write tools for stock adjustments, invoice creation/editing, and contact management via POSibolt POST API
 
 ---
 
@@ -83,7 +83,7 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md — Create 6 write tools (stock, invoice, contact CRUD), register in MCP server + ALL_TOOLS
-- [ ] 07-02-PLAN.md — Integration tests for write tools (registration, filtering, ALL_TOOLS)
+- [x] 07-02-PLAN.md — Integration tests for write tools (registration, filtering, ALL_TOOLS)
 
 **Success Criteria** (what must be TRUE):
   1. MCP tool `create_stock_entry` accepts product ID, warehouse, quantity, and adjustment type; calls POSibolt inventory API; returns created entry details
@@ -107,7 +107,7 @@ Plans:
 | 4. YouTrack KB Sync | 4/4 | Complete | 2026-03-17 |
 | 5. Backend Services | 3/3 | Complete | 2026-03-18 |
 | 6. Admin Dashboard + Doc Upload | 2/2 | Complete | 2026-03-18 |
-| 7. Write Tools | 1/2 | In Progress | — |
+| 7. Write Tools | 2/2 | Complete | 2026-03-18 |
 
 ---
 
@@ -232,3 +232,4 @@ Plans:
 *Phase 5 planned: 2026-03-18 — 3 plans in 2 waves*
 *Phase 6 planned: 2026-03-18 — 2 plans in 2 waves*
 *Phase 7 planned: 2026-03-18 — 2 plans in 2 waves*
+*v2.0 complete: 2026-03-18 — 3 phases, 7 plans, 26/26 requirements delivered*
