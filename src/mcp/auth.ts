@@ -1,19 +1,57 @@
 import { createHash } from 'crypto';
+import postgres from 'postgres';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { lookupApiKeyByHash } from '../admin/tenant-service.js';
 import { tenantStorage } from '../context.js';
+import type { PosiboltConfig } from '../posibolt/client.js';
 
 /**
- * Extract the X-Api-Key header, hash it with SHA-256, look up the tenant, and
- * run the handler within the tenant's AsyncLocalStorage context.
- *
- * If the key is missing, invalid, or revoked: sends 401 and returns without
- * calling the handler.
- *
- * Usage in Fastify route handlers:
- *   await extractAndValidateApiKey(request, reply, async () => {
- *     // getTenantId() is available here
- *   });
+ * Load the tenant's ERP configuration from the tenants table.
+ * Returns null if no ERP config is set (all ERP columns are nullable).
+ */
+async function loadErpConfig(tenantId: string): Promise<PosiboltConfig | null> {
+  if (!process.env.DATABASE_MIGRATION_URL) return null;
+
+  const adminSql = postgres(process.env.DATABASE_MIGRATION_URL, { max: 2 });
+  try {
+    const rows = await adminSql<{
+      erp_base_url: string | null;
+      erp_client_id: string | null;
+      erp_app_secret: string | null;
+      erp_username: string | null;
+      erp_password: string | null;
+      erp_terminal: string | null;
+    }[]>`
+      SELECT erp_base_url, erp_client_id, erp_app_secret,
+             erp_username, erp_password, erp_terminal
+      FROM tenants WHERE id = ${tenantId}
+    `;
+
+    if (rows.length === 0) return null;
+    const r = rows[0];
+
+    // All 6 fields must be set for a valid config
+    if (!r.erp_base_url || !r.erp_client_id || !r.erp_app_secret ||
+        !r.erp_username || !r.erp_password || !r.erp_terminal) {
+      return null;
+    }
+
+    return {
+      baseUrl: r.erp_base_url,
+      clientId: r.erp_client_id,
+      appSecret: r.erp_app_secret,
+      username: r.erp_username,
+      password: r.erp_password,
+      terminal: r.erp_terminal,
+    };
+  } finally {
+    await adminSql.end();
+  }
+}
+
+/**
+ * Extract the X-Api-Key header, hash it with SHA-256, look up the tenant,
+ * load ERP config, and run the handler within the tenant's AsyncLocalStorage context.
  */
 export async function extractAndValidateApiKey(
   request: FastifyRequest,
@@ -43,7 +81,12 @@ export async function extractAndValidateApiKey(
     return;
   }
 
-  // Run the handler within the tenant's AsyncLocalStorage context.
-  // This makes getTenantId() available throughout the async call chain.
-  await tenantStorage.run({ tenantId: result.tenantId, keyId: result.keyId }, handler);
+  // Load ERP config for this tenant
+  const erpConfig = await loadErpConfig(result.tenantId);
+
+  // Run handler within tenant context (includes ERP config)
+  await tenantStorage.run(
+    { tenantId: result.tenantId, keyId: result.keyId, erpConfig },
+    handler
+  );
 }

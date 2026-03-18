@@ -10,6 +10,12 @@ export const tenants = pgTable('tenants', {
   slug: text('slug').notNull().unique(),
   plan: text('plan').notNull().default('standard'),
   status: text('status').notNull().default('active'),
+  erpBaseUrl: text('erp_base_url'),
+  erpClientId: text('erp_client_id'),
+  erpAppSecret: text('erp_app_secret'),
+  erpUsername: text('erp_username'),
+  erpPassword: text('erp_password'),
+  erpTerminal: text('erp_terminal'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

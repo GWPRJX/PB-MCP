@@ -1,331 +1,385 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import postgres from 'postgres';
 import { z } from 'zod';
-import { getTenantId } from '../context.js';
-import { withTenantContext } from '../db/client.js';
+import { getErpConfig } from '../context.js';
+import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess } from './errors.js';
+
+/* ------------------------------------------------------------------ */
+/*  Helper: date formatting                                            */
+/* ------------------------------------------------------------------ */
+
+/** YYYY-MM-DD string for POSibolt salesorder endpoints. */
+function fmtDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Default "from" date: 30 days before today. */
+function defaultFromDate(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d;
+}
+
+/* ------------------------------------------------------------------ */
+/*  POSibolt response types (minimal — only fields we surface)         */
+/* ------------------------------------------------------------------ */
+
+interface SalesHistoryLine {
+  productName?: string;
+  productCode?: string;
+  quantity?: number;
+  unitPrice?: number;
+  lineTotal?: number;
+  uom?: string;
+}
+
+interface PaymentDetail {
+  paymentMethod?: string;
+  amount?: number;
+  referenceNo?: string;
+}
+
+interface SalesHistoryItem {
+  customerName?: string;
+  orderNo?: string;
+  invoiceNo?: string;
+  dateCreated?: string;
+  invoiceAmount?: number;
+  salesRepName?: string;
+  lines?: SalesHistoryLine[];
+  paymentDetails?: PaymentDetail[];
+}
+
+interface SalesDetail {
+  orderNo?: string;
+  invoiceNo?: string;
+  customerName?: string;
+  dateCreated?: string;
+  invoiceAmount?: number;
+  salesRepName?: string;
+  lines?: SalesHistoryLine[];
+  paymentDetails?: PaymentDetail[];
+  [key: string]: unknown;
+}
+
+interface InvoiceItem {
+  invoiceNo?: string;
+  customerName?: string;
+  dateCreated?: string;
+  invoiceAmount?: number;
+  dueDate?: string;
+  [key: string]: unknown;
+}
+
+interface OpenInvoiceItem {
+  invoiceNo?: string;
+  customerName?: string;
+  invoiceAmount?: number;
+  dueDate?: string;
+  openAmount?: number;
+  [key: string]: unknown;
+}
 
 /**
  * Register all 6 orders/billing MCP tools on the provided McpServer instance.
  *
  * Tools registered:
- *   ORD-01  list_orders             — paginated orders with optional status filter
- *   ORD-02  get_order               — single order with line items + linked contact inline
- *   ORD-03  list_invoices           — paginated invoices with optional status filter
- *   ORD-04  get_invoice             — single invoice by ID
- *   ORD-05  list_overdue_invoices   — invoices past due or marked overdue
- *   ORD-06  get_payment_summary     — tenant-level payment aggregate
+ *   ORD-01  list_orders             -- sales history from POSibolt
+ *   ORD-02  get_order               -- single order by orderNo
+ *   ORD-03  list_invoices           -- previous invoices from POSibolt
+ *   ORD-04  get_invoice             -- single invoice by invoiceNo
+ *   ORD-05  list_overdue_invoices   -- open/unpaid invoices for a customer
+ *   ORD-06  get_payment_summary     -- aggregate payment totals from sales history
  *
- * CRITICAL: All queries use raw txSql inside withTenantContext — NOT the db Drizzle export.
- * The Drizzle db instance does not execute within the tenant transaction context.
+ * All tools call the POSibolt REST API via pbGet. No local database access.
  */
 export function registerOrdersTools(server: McpServer): void {
   // -------------------------------------------------------------------------
-  // ORD-01: list_orders — paginated orders with optional status filter
+  // ORD-01: list_orders -- sales history with date range and optional filters
   // -------------------------------------------------------------------------
   server.tool(
     'list_orders',
-    'List all orders for the tenant with pagination. Optionally filter by status (e.g., draft, confirmed, shipped, cancelled).',
+    'List sales orders from POSibolt. Defaults to last 30 days. Optionally filter by customerId or orgId. Returns order summaries with line items and payment details.',
     {
+      fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+        .describe('Start date inclusive (YYYY-MM-DD). Default: 30 days ago.'),
+      toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+        .describe('End date inclusive (YYYY-MM-DD). Default: today.'),
+      customerId: z.number().int().optional()
+        .describe('POSibolt customer ID to filter by.'),
+      orgId: z.number().int().optional()
+        .describe('POSibolt organization ID to filter by.'),
+      includeCRO: z.boolean().optional()
+        .describe('Include CRO orders. Default: true.'),
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
-      status: z.string().optional(),
     },
-    async ({ limit = 200, offset = 0, status }) => {
+    async ({ fromDate, toDate, customerId, orgId, includeCRO, limit = 200, offset = 0 }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
+        const config = getErpConfig();
 
-          const [{ count }] = status
-            ? await txSql`SELECT COUNT(*) AS count FROM orders WHERE status = ${status}` as [{ count: string }]
-            : await txSql`SELECT COUNT(*) AS count FROM orders` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
+        const from = fromDate ?? fmtDate(defaultFromDate());
+        const to = toDate ?? fmtDate(new Date());
 
-          const items = status
-            ? await txSql`
-                SELECT id, tenant_id, contact_id, status, order_date, subtotal, tax_amount, total, notes, created_at
-                FROM orders
-                WHERE status = ${status}
-                ORDER BY order_date DESC, created_at DESC
-                LIMIT ${limit} OFFSET ${offset}
-              `
-            : await txSql`
-                SELECT id, tenant_id, contact_id, status, order_date, subtotal, tax_amount, total, notes, created_at
-                FROM orders
-                ORDER BY order_date DESC, created_at DESC
-                LIMIT ${limit} OFFSET ${offset}
-              `;
+        const params: Record<string, string | number | boolean> = {
+          fromDate: from,
+          toDate: to,
+          limit,
+          offset,
+          includeCRO: includeCRO ?? true,
+        };
+        if (customerId !== undefined) params.customerId = customerId;
+        if (orgId !== undefined) params.orgId = orgId;
 
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
+        const items = await pbGet<SalesHistoryItem[]>(
+          config,
+          '/salesorder/saleshistory',
+          params,
+        );
+
+        return toolSuccess({
+          items,
+          total_count: items.length,
+          filter: { fromDate: from, toDate: to, customerId, orgId },
         });
-        return toolSuccess(result);
       } catch (err) {
         process.stderr.write(`[tools/orders] list_orders error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // ORD-02: get_order — single order with line items + linked contact inline
-  // Two queries: (1) order + contact JOIN, (2) line items + products JOIN
+  // ORD-02: get_order -- single order by orderNo
   // -------------------------------------------------------------------------
   server.tool(
     'get_order',
-    'Get full details for a single order by its UUID, including all line items with product details and the linked contact.',
+    'Get full details for a single sales order by its order number (e.g. "SOKK-57102"). Returns line items, payment details, and customer info.',
     {
-      id: z.string().uuid(),
+      orderNo: z.string().min(1).describe('POSibolt order number (e.g. "SOKK-57102").'),
     },
-    async ({ id }) => {
+    async ({ orderNo }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
+        const config = getErpConfig();
 
-          // Query 1: order fields + contact JOIN
-          const orderRows = await txSql`
-            SELECT
-              o.id,
-              o.tenant_id,
-              o.contact_id,
-              o.status,
-              o.order_date,
-              o.subtotal,
-              o.tax_amount,
-              o.total,
-              o.notes,
-              o.created_at,
-              o.updated_at,
-              c.id AS contact__id,
-              c.name AS contact__name,
-              c.email AS contact__email,
-              c.phone AS contact__phone
-            FROM orders o
-            LEFT JOIN contacts c ON c.id = o.contact_id
-            WHERE o.id = ${id}
-          `;
+        const result = await pbGet<SalesDetail | SalesDetail[]>(
+          config,
+          '/salesorder/getsalesdetails',
+          { orderNo },
+        );
 
-          if (orderRows.length === 0) return null;
+        // API may return a single object or an array; normalise
+        const order = Array.isArray(result) ? result[0] : result;
 
-          const row = orderRows[0];
-          const order = {
-            id: row.id,
-            tenant_id: row.tenant_id,
-            contact_id: row.contact_id,
-            status: row.status,
-            order_date: row.order_date,
-            subtotal: row.subtotal,
-            tax_amount: row.tax_amount,
-            total: row.total,
-            notes: row.notes,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            contact: row.contact__id
-              ? { id: row.contact__id, name: row.contact__name, email: row.contact__email, phone: row.contact__phone }
-              : null,
-          };
-
-          // Query 2: line items + products JOIN
-          const lineItems = await txSql`
-            SELECT
-              li.id,
-              li.product_id,
-              p.name AS product_name,
-              p.sku AS product_sku,
-              li.quantity,
-              li.unit_price,
-              li.line_total
-            FROM order_line_items li
-            JOIN products p ON p.id = li.product_id
-            WHERE li.order_id = ${id}
-            ORDER BY li.created_at ASC
-          `;
-
-          return { ...order, line_items: lineItems };
-        });
-
-        if (!result) {
-          return toolError('NOT_FOUND', 'Order not found');
+        if (!order) {
+          return toolError('NOT_FOUND', `Order ${orderNo} not found`);
         }
-        return toolSuccess(result);
+
+        return toolSuccess(order);
       } catch (err) {
         process.stderr.write(`[tools/orders] get_order error: ${err instanceof Error ? err.message : String(err)}\n`);
+        if (err instanceof Error && err.message.includes('404')) {
+          return toolError('NOT_FOUND', `Order ${orderNo} not found`);
+        }
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // ORD-03: list_invoices — paginated invoices with optional status filter
+  // ORD-03: list_invoices -- previous invoices with date range
   // -------------------------------------------------------------------------
   server.tool(
     'list_invoices',
-    'List all invoices for the tenant with pagination. Optionally filter by status (e.g., draft, unpaid, paid, overdue, cancelled).',
+    'List previous invoices from POSibolt. Defaults to last 30 days. Optionally filter by customerId.',
     {
-      limit: z.number().int().min(1).optional(),
-      offset: z.number().int().min(0).optional(),
-      status: z.string().optional(),
+      fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+        .describe('Start date inclusive (YYYY-MM-DD). Default: 30 days ago.'),
+      toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+        .describe('End date inclusive (YYYY-MM-DD). Default: today.'),
+      customerId: z.number().int().optional()
+        .describe('POSibolt customer ID to filter by.'),
     },
-    async ({ limit = 200, offset = 0, status }) => {
+    async ({ fromDate, toDate, customerId }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
+        const config = getErpConfig();
 
-          const [{ count }] = status
-            ? await txSql`SELECT COUNT(*) AS count FROM invoices WHERE status = ${status}` as [{ count: string }]
-            : await txSql`SELECT COUNT(*) AS count FROM invoices` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
+        // This endpoint expects epoch milliseconds for date parameters
+        const fromMs = fromDate
+          ? new Date(fromDate).getTime()
+          : defaultFromDate().getTime();
+        const toMs = toDate
+          ? new Date(toDate).getTime()
+          : Date.now();
 
-          const items = status
-            ? await txSql`
-                SELECT id, order_id, contact_id, status, issued_at, due_at, paid_at, subtotal, tax_amount, total, notes, created_at
-                FROM invoices
-                WHERE status = ${status}
-                ORDER BY issued_at DESC, created_at DESC
-                LIMIT ${limit} OFFSET ${offset}
-              `
-            : await txSql`
-                SELECT id, order_id, contact_id, status, issued_at, due_at, paid_at, subtotal, tax_amount, total, notes, created_at
-                FROM invoices
-                ORDER BY issued_at DESC, created_at DESC
-                LIMIT ${limit} OFFSET ${offset}
-              `;
+        const params: Record<string, string | number | boolean> = {
+          fromDate: fromMs,
+          toDate: toMs,
+        };
+        if (customerId !== undefined) params.customerId = customerId;
 
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
+        const items = await pbGet<InvoiceItem[]>(
+          config,
+          '/salesinvoice/getPreviousInvoices',
+          params,
+        );
+
+        return toolSuccess({
+          items,
+          total_count: items.length,
+          filter: {
+            fromDate: fromDate ?? fmtDate(defaultFromDate()),
+            toDate: toDate ?? fmtDate(new Date()),
+            customerId,
+          },
         });
-        return toolSuccess(result);
       } catch (err) {
         process.stderr.write(`[tools/orders] list_invoices error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // ORD-04: get_invoice — single invoice by ID
+  // ORD-04: get_invoice -- single invoice by invoiceNo
   // -------------------------------------------------------------------------
   server.tool(
     'get_invoice',
-    'Get full details for a single invoice by its UUID.',
+    'Get full details for a single invoice by its invoice number (e.g. "SIKK-105829"). Returns line items, payment details, and customer info.',
     {
-      id: z.string().uuid(),
+      invoiceNo: z.string().min(1).describe('POSibolt invoice number (e.g. "SIKK-105829").'),
     },
-    async ({ id }) => {
+    async ({ invoiceNo }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const rows = await txSql`
-            SELECT id, tenant_id, order_id, contact_id, status, issued_at, due_at, paid_at,
-                   subtotal, tax_amount, total, notes, created_at, updated_at
-            FROM invoices
-            WHERE id = ${id}
-          `;
-          return rows[0] ?? null;
-        });
-        if (!result) {
-          return toolError('NOT_FOUND', 'Invoice not found');
+        const config = getErpConfig();
+
+        const result = await pbGet<SalesDetail | SalesDetail[]>(
+          config,
+          '/salesorder/getsalesdetails',
+          { invoiceNo },
+        );
+
+        // API may return a single object or an array; normalise
+        const invoice = Array.isArray(result) ? result[0] : result;
+
+        if (!invoice) {
+          return toolError('NOT_FOUND', `Invoice ${invoiceNo} not found`);
         }
-        return toolSuccess(result);
+
+        return toolSuccess(invoice);
       } catch (err) {
         process.stderr.write(`[tools/orders] get_invoice error: ${err instanceof Error ? err.message : String(err)}\n`);
+        if (err instanceof Error && err.message.includes('404')) {
+          return toolError('NOT_FOUND', `Invoice ${invoiceNo} not found`);
+        }
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // ORD-05: list_overdue_invoices — invoices past due or explicitly marked overdue
-  // Logic: status = 'overdue' OR (due_at < CURRENT_DATE AND status NOT IN ('paid','cancelled'))
+  // ORD-05: list_overdue_invoices -- open/unpaid invoices for a customer
   // -------------------------------------------------------------------------
   server.tool(
     'list_overdue_invoices',
-    'List all overdue invoices for the tenant. Returns invoices with status=overdue or those past their due date that are not paid or cancelled.',
+    'List all open (unpaid) invoices for a specific customer from POSibolt. Requires a customerId.',
     {
-      limit: z.number().int().min(1).optional(),
-      offset: z.number().int().min(0).optional(),
+      customerId: z.number().int().describe('POSibolt customer ID (required).'),
     },
-    async ({ limit = 200, offset = 0 }) => {
+    async ({ customerId }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const [{ count }] = await txSql`
-            SELECT COUNT(*) AS count
-            FROM invoices
-            WHERE status = 'overdue'
-               OR (due_at < CURRENT_DATE AND status NOT IN ('paid', 'cancelled'))
-          ` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
+        const config = getErpConfig();
 
-          const items = await txSql`
-            SELECT id, order_id, contact_id, status, issued_at, due_at, paid_at, subtotal, tax_amount, total, notes, created_at
-            FROM invoices
-            WHERE status = 'overdue'
-               OR (due_at < CURRENT_DATE AND status NOT IN ('paid', 'cancelled'))
-            ORDER BY due_at ASC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
+        const items = await pbGet<OpenInvoiceItem[]>(
+          config,
+          '/customermaster/getCustomerOpenInvoices',
+          { customerId },
+        );
 
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
+        // Compute total open amount across all unpaid invoices
+        const totalOpen = items.reduce(
+          (sum, inv) => sum + (inv.openAmount ?? inv.invoiceAmount ?? 0),
+          0,
+        );
+
+        return toolSuccess({
+          items,
+          total_count: items.length,
+          total_open_amount: totalOpen,
+          customerId,
         });
-        return toolSuccess(result);
       } catch (err) {
         process.stderr.write(`[tools/orders] list_overdue_invoices error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // ORD-06: get_payment_summary — tenant-level payment aggregate
-  // Three scalar queries: total_invoiced, total_paid, overdue_count
-  // outstanding_balance computed as total_invoiced - total_paid in JS
+  // ORD-06: get_payment_summary -- aggregate payment totals from sales history
   // -------------------------------------------------------------------------
   server.tool(
     'get_payment_summary',
-    'Get a payment summary for the tenant: total invoiced amount, total paid, outstanding balance, and count of overdue invoices.',
-    {},
-    async () => {
+    'Get a payment summary for a date range: total invoiced amount, total from payment details, and order count. Defaults to last 30 days.',
+    {
+      fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+        .describe('Start date inclusive (YYYY-MM-DD). Default: 30 days ago.'),
+      toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+        .describe('End date inclusive (YYYY-MM-DD). Default: today.'),
+      customerId: z.number().int().optional()
+        .describe('POSibolt customer ID to filter by.'),
+    },
+    async ({ fromDate, toDate, customerId }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
+        const config = getErpConfig();
 
-          const [{ total_invoiced }] = await txSql`
-            SELECT COALESCE(SUM(total), 0)::text AS total_invoiced FROM invoices
-          ` as [{ total_invoiced: string }];
+        const from = fromDate ?? fmtDate(defaultFromDate());
+        const to = toDate ?? fmtDate(new Date());
 
-          const [{ total_paid }] = await txSql`
-            SELECT COALESCE(SUM(total), 0)::text AS total_paid FROM invoices WHERE status = 'paid'
-          ` as [{ total_paid: string }];
+        const params: Record<string, string | number | boolean> = {
+          fromDate: from,
+          toDate: to,
+          limit: 10000,
+          offset: 0,
+          includeCRO: true,
+        };
+        if (customerId !== undefined) params.customerId = customerId;
 
-          const [{ overdue_count }] = await txSql`
-            SELECT COUNT(*)::int AS overdue_count
-            FROM invoices
-            WHERE status = 'overdue'
-               OR (due_at < CURRENT_DATE AND status NOT IN ('paid', 'cancelled'))
-          ` as [{ overdue_count: number }];
+        const items = await pbGet<SalesHistoryItem[]>(
+          config,
+          '/salesorder/saleshistory',
+          params,
+        );
 
-          const outstanding_balance = (parseFloat(total_invoiced) - parseFloat(total_paid)).toFixed(2);
+        // Aggregate totals from the sales history
+        let totalInvoiced = 0;
+        let totalPayments = 0;
+        let orderCount = 0;
 
-          return {
-            total_invoiced,
-            total_paid,
-            outstanding_balance,
-            overdue_count,
-          };
+        for (const item of items) {
+          orderCount++;
+          totalInvoiced += item.invoiceAmount ?? 0;
+
+          if (item.paymentDetails) {
+            for (const pd of item.paymentDetails) {
+              totalPayments += pd.amount ?? 0;
+            }
+          }
+        }
+
+        const outstandingBalance = totalInvoiced - totalPayments;
+
+        return toolSuccess({
+          total_invoiced: totalInvoiced.toFixed(2),
+          total_payments: totalPayments.toFixed(2),
+          outstanding_balance: outstandingBalance.toFixed(2),
+          order_count: orderCount,
+          filter: { fromDate: from, toDate: to, customerId },
         });
-        return toolSuccess(result);
       } catch (err) {
         process.stderr.write(`[tools/orders] get_payment_summary error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 }

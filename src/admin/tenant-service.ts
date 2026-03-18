@@ -67,24 +67,28 @@ export interface CreateApiKeyResult {
  *
  * Throws with code 'DUPLICATE_SLUG' if slug already exists.
  */
+export interface ErpConfigInput {
+  erpBaseUrl?: string;
+  erpClientId?: string;
+  erpAppSecret?: string;
+  erpUsername?: string;
+  erpPassword?: string;
+  erpTerminal?: string;
+}
+
 export async function createTenant(
   name: string,
   slug: string,
-  plan: string
+  plan: string,
+  erpConfig?: ErpConfigInput
 ): Promise<CreateTenantResult> {
   const { raw, hash } = generateApiKey();
 
-  // Use postgres.js directly for the transaction (withTenantContext is for tenant-scoped reads;
-  // tenant creation is an admin operation that runs without RLS context).
   const [tenantRow] = await sql.begin(async (tx) => {
-    // Cast tx to postgres.Sql to access the tagged-template call signature.
-    // TransactionSql extends Omit<Sql, 'begin' | ...> so it retains the template tag,
-    // but TypeScript strict mode may not infer it as callable — the cast is safe.
     const txSql = tx as unknown as postgres.Sql;
-    // Insert tenant
     const inserted = await txSql<TenantRow[]>`
-      INSERT INTO tenants (name, slug, plan)
-      VALUES (${name}, ${slug}, ${plan})
+      INSERT INTO tenants (name, slug, plan, erp_base_url, erp_client_id, erp_app_secret, erp_username, erp_password, erp_terminal)
+      VALUES (${name}, ${slug}, ${plan}, ${erpConfig?.erpBaseUrl ?? null}, ${erpConfig?.erpClientId ?? null}, ${erpConfig?.erpAppSecret ?? null}, ${erpConfig?.erpUsername ?? null}, ${erpConfig?.erpPassword ?? null}, ${erpConfig?.erpTerminal ?? null})
       RETURNING id, name, slug, plan, status, created_at AS "createdAt", updated_at AS "updatedAt"
     `;
 

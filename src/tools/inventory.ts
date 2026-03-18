@@ -1,347 +1,363 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import postgres from 'postgres';
 import { z } from 'zod';
-import { getTenantId } from '../context.js';
-import { withTenantContext } from '../db/client.js';
+import { getErpConfig } from '../context.js';
+import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess } from './errors.js';
+
+/* ------------------------------------------------------------------ */
+/*  POSibolt product-list response shape                              */
+/* ------------------------------------------------------------------ */
+interface PbProduct {
+  productId: number;
+  name: string;
+  description: string | null;
+  sku: string;
+  salesPrice: number;
+  costPrice: number;
+  mrpPrice: number;
+  stockQty: number;
+  uom: string;
+  isActive: boolean;
+  productCategoryId: number;
+  productCategory: string;
+  upc: string | null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  POSibolt warehouse inventory response shape                       */
+/* ------------------------------------------------------------------ */
+interface PbWarehouseInventory {
+  warehouseId: number;
+  warehouseName: string;
+  productId: number;
+  productName: string;
+  sku: string;
+  qtyOnHand: number;
+  qtyReserved: number;
+  qtyAvailable: number;
+}
 
 /**
  * Register all 7 inventory MCP tools on the provided McpServer instance.
  *
- * Tools registered:
- *   INV-01  list_products        — paginated product list with qty_on_hand JOIN
- *   INV-02  get_product          — single product by ID
- *   INV-03  list_stock_levels    — paginated stock_levels list
- *   INV-04  get_stock_level      — single stock level by ID
- *   INV-05  list_low_stock       — products below reorder_point
- *   INV-06  list_suppliers       — paginated suppliers list
- *   INV-07  get_supplier         — single supplier by ID (no products — no FK exists)
- *
- * CRITICAL: All queries use raw txSql inside withTenantContext — NOT the db Drizzle export.
- * The Drizzle db instance does not execute within the tenant transaction context.
+ * Tools registered (backed by POSibolt REST API):
+ *   INV-01  list_products        -- paginated product list via /productmaster/productlist
+ *   INV-02  get_product          -- product search via /productmaster/search
+ *   INV-03  list_stock_levels    -- warehouse inventory via /warehousemaster/getWareHouseInventory
+ *   INV-04  get_stock_level      -- product stock lookup via /productmaster/search
+ *   INV-05  list_low_stock       -- products with stockQty below threshold
+ *   INV-06  list_suppliers       -- vendor listing guidance (delegates to search_contacts)
+ *   INV-07  get_supplier         -- single vendor via /customermaster/{vendorId}
  */
 export function registerInventoryTools(server: McpServer): void {
   // -------------------------------------------------------------------------
-  // INV-01: list_products — paginated product list with qty_on_hand
+  // INV-01: list_products -- paginated product list from POSibolt
   // -------------------------------------------------------------------------
   server.tool(
     'list_products',
-    'List all products for the tenant. Each product includes qty_on_hand from the most recent stock level record. Supports pagination via limit and offset.',
+    'List active products from POSibolt ERP. Returns product name, SKU, prices, stock quantity, UOM, and category. Supports pagination via limit and offset.',
     {
-      limit: z.number().int().min(1).optional(),
+      limit: z.number().int().min(1).max(500).optional(),
       offset: z.number().int().min(0).optional(),
     },
     async ({ limit = 200, offset = 0 }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const [{ count }] = await txSql`
-            SELECT COUNT(*) AS count FROM products
-          ` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
-
-          const items = await txSql`
-            SELECT
-              p.id,
-              p.sku,
-              p.name,
-              p.description,
-              p.price,
-              p.currency,
-              p.category,
-              p.is_active,
-              p.reorder_point,
-              p.created_at,
-              p.updated_at,
-              COALESCE(sl.quantity_on_hand, 0) AS qty_on_hand,
-              sl.warehouse_location
-            FROM products p
-            LEFT JOIN stock_levels sl ON sl.product_id = p.id
-            ORDER BY p.name ASC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
-
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
+        const config = getErpConfig();
+        const data = await pbGet<PbProduct[]>(config, '/productmaster/productlist', {
+          limitByOrg: true,
+          limit,
+          offset,
+          updatedSince: 0,
+          isactive: true,
         });
-        return toolSuccess(result);
+
+        const items = (data ?? []).map((p) => ({
+          productId: p.productId,
+          name: p.name,
+          description: p.description,
+          sku: p.sku,
+          salesPrice: p.salesPrice,
+          costPrice: p.costPrice,
+          mrpPrice: p.mrpPrice,
+          stockQty: p.stockQty,
+          uom: p.uom,
+          isActive: p.isActive,
+          category: p.productCategory,
+          categoryId: p.productCategoryId,
+          upc: p.upc,
+        }));
+
+        const nextCursor = items.length === limit ? offset + limit : null;
+        return toolSuccess({
+          items,
+          count: items.length,
+          next_cursor: nextCursor,
+        });
       } catch (err) {
-        process.stderr.write(`[tools/inventory] list_products error: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(
+          `[tools/inventory] list_products error: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // INV-02: get_product — single product with current stock level
+  // INV-02: get_product -- search for a single product by text
   // -------------------------------------------------------------------------
   server.tool(
     'get_product',
-    'Get full details for a single product by its UUID, including current stock level.',
+    'Search for a product by name, SKU, or barcode text. Returns the best-matching product with full pricing and stock info.',
     {
-      id: z.string().uuid(),
+      searchText: z.string().min(1).describe('Product name, SKU, or barcode to search for'),
     },
-    async ({ id }) => {
+    async ({ searchText }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const rows = await txSql`
-            SELECT
-              p.id,
-              p.sku,
-              p.name,
-              p.description,
-              p.price,
-              p.currency,
-              p.category,
-              p.is_active,
-              p.reorder_point,
-              p.created_at,
-              p.updated_at,
-              COALESCE(sl.quantity_on_hand, 0) AS qty_on_hand,
-              sl.warehouse_location
-            FROM products p
-            LEFT JOIN stock_levels sl ON sl.product_id = p.id
-            WHERE p.id = ${id}
-          `;
-          return rows[0] ?? null;
+        const config = getErpConfig();
+        const data = await pbGet<PbProduct[]>(config, '/productmaster/search', {
+          searchText,
+          limit: 1,
         });
-        if (!result) {
-          return toolError('NOT_FOUND', 'Product not found');
+
+        const results = Array.isArray(data) ? data : [];
+        if (results.length === 0) {
+          return toolError('NOT_FOUND', `No product found matching "${searchText}"`);
         }
-        return toolSuccess(result);
+
+        const p = results[0];
+        return toolSuccess({
+          productId: p.productId,
+          name: p.name,
+          description: p.description,
+          sku: p.sku,
+          salesPrice: p.salesPrice,
+          costPrice: p.costPrice,
+          mrpPrice: p.mrpPrice,
+          stockQty: p.stockQty,
+          uom: p.uom,
+          isActive: p.isActive,
+          category: p.productCategory,
+          categoryId: p.productCategoryId,
+          upc: p.upc,
+        });
       } catch (err) {
-        process.stderr.write(`[tools/inventory] get_product error: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(
+          `[tools/inventory] get_product error: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // INV-03: list_stock_levels — paginated stock levels
+  // INV-03: list_stock_levels -- warehouse inventory from POSibolt
   // -------------------------------------------------------------------------
   server.tool(
     'list_stock_levels',
-    'List all stock level records for the tenant with pagination. Each record includes product_id and warehouse location.',
+    'List warehouse inventory levels from POSibolt. Optionally filter by warehouseId. Returns product stock quantities per warehouse.',
     {
-      limit: z.number().int().min(1).optional(),
-      offset: z.number().int().min(0).optional(),
+      warehouseId: z
+        .number()
+        .int()
+        .optional()
+        .describe('POSibolt warehouse ID to filter by (omit for all warehouses)'),
     },
-    async ({ limit = 200, offset = 0 }) => {
+    async ({ warehouseId }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const [{ count }] = await txSql`
-            SELECT COUNT(*) AS count FROM stock_levels
-          ` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
+        const config = getErpConfig();
+        const params: Record<string, string | number | boolean> = {};
+        if (warehouseId !== undefined) {
+          params.warehouseId = warehouseId;
+        }
 
-          const items = await txSql`
-            SELECT
-              sl.id,
-              sl.product_id,
-              sl.quantity_on_hand,
-              sl.warehouse_location,
-              sl.created_at,
-              sl.updated_at,
-              p.sku AS product_sku,
-              p.name AS product_name
-            FROM stock_levels sl
-            JOIN products p ON p.id = sl.product_id
-            ORDER BY p.name ASC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
+        const data = await pbGet<PbWarehouseInventory[]>(
+          config,
+          '/warehousemaster/getWareHouseInventory',
+          params,
+        );
 
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
+        const items = Array.isArray(data) ? data : [];
+        return toolSuccess({
+          items,
+          count: items.length,
         });
-        return toolSuccess(result);
       } catch (err) {
-        process.stderr.write(`[tools/inventory] list_stock_levels error: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(
+          `[tools/inventory] list_stock_levels error: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // INV-04: get_stock_level — single stock level record by ID
+  // INV-04: get_stock_level -- stock info for a specific product
   // -------------------------------------------------------------------------
   server.tool(
     'get_stock_level',
-    'Get a single stock level record by its UUID, including product name and SKU.',
+    'Get current stock level for a specific product by searching its name or SKU. Returns stock quantity and pricing details.',
     {
-      id: z.string().uuid(),
+      searchText: z
+        .string()
+        .min(1)
+        .describe('Product name, SKU, or barcode to look up stock for'),
     },
-    async ({ id }) => {
+    async ({ searchText }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const rows = await txSql`
-            SELECT
-              sl.id,
-              sl.product_id,
-              sl.quantity_on_hand,
-              sl.warehouse_location,
-              sl.created_at,
-              sl.updated_at,
-              p.sku AS product_sku,
-              p.name AS product_name
-            FROM stock_levels sl
-            JOIN products p ON p.id = sl.product_id
-            WHERE sl.id = ${id}
-          `;
-          return rows[0] ?? null;
+        const config = getErpConfig();
+        const data = await pbGet<PbProduct[]>(config, '/productmaster/search', {
+          searchText,
+          limit: 5,
         });
-        if (!result) {
-          return toolError('NOT_FOUND', 'Stock level not found');
+
+        const results = Array.isArray(data) ? data : [];
+        if (results.length === 0) {
+          return toolError('NOT_FOUND', `No product found matching "${searchText}"`);
         }
-        return toolSuccess(result);
+
+        const items = results.map((p) => ({
+          productId: p.productId,
+          name: p.name,
+          sku: p.sku,
+          stockQty: p.stockQty,
+          uom: p.uom,
+          salesPrice: p.salesPrice,
+        }));
+
+        return toolSuccess({
+          items,
+          count: items.length,
+        });
       } catch (err) {
-        process.stderr.write(`[tools/inventory] get_stock_level error: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(
+          `[tools/inventory] get_stock_level error: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // INV-05: list_low_stock — products below reorder_point
+  // INV-05: list_low_stock -- products below a stock threshold
   // -------------------------------------------------------------------------
   server.tool(
     'list_low_stock',
-    'List all active products where current quantity_on_hand is below the reorder_point threshold. Returns empty list if all stock levels are adequate.',
+    'List active products whose current stock quantity is below the given threshold. Fetches the full product list from POSibolt and filters client-side.',
     {
-      limit: z.number().int().min(1).optional(),
+      threshold: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe('Stock quantity threshold (default 10). Products with stockQty below this are returned.'),
+      limit: z.number().int().min(1).max(500).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ limit = 200, offset = 0 }) => {
+    async ({ threshold = 10, limit = 200, offset = 0 }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const [{ count }] = await txSql`
-            SELECT COUNT(*) AS count
-            FROM products p
-            LEFT JOIN stock_levels sl ON sl.product_id = p.id
-            WHERE p.is_active = true
-              AND COALESCE(sl.quantity_on_hand, 0) < p.reorder_point
-          ` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
+        const config = getErpConfig();
 
-          const items = await txSql`
-            SELECT
-              p.id,
-              p.sku,
-              p.name,
-              p.reorder_point,
-              COALESCE(sl.quantity_on_hand, 0) AS qty_on_hand,
-              sl.warehouse_location
-            FROM products p
-            LEFT JOIN stock_levels sl ON sl.product_id = p.id
-            WHERE p.is_active = true
-              AND COALESCE(sl.quantity_on_hand, 0) < p.reorder_point
-            ORDER BY (p.reorder_point - COALESCE(sl.quantity_on_hand, 0)) DESC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
-
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
+        // Fetch a large batch of active products; filter those below threshold
+        const data = await pbGet<PbProduct[]>(config, '/productmaster/productlist', {
+          limitByOrg: true,
+          limit: 500,
+          offset: 0,
+          updatedSince: 0,
+          isactive: true,
         });
-        return toolSuccess(result);
+
+        const all = (data ?? []).filter(
+          (p) => p.isActive && p.stockQty < threshold,
+        );
+
+        // Sort by deficit (most critical first)
+        all.sort((a, b) => a.stockQty - b.stockQty);
+
+        const paged = all.slice(offset, offset + limit);
+        const nextCursor = offset + paged.length < all.length ? offset + limit : null;
+
+        const items = paged.map((p) => ({
+          productId: p.productId,
+          name: p.name,
+          sku: p.sku,
+          stockQty: p.stockQty,
+          threshold,
+          deficit: threshold - p.stockQty,
+          uom: p.uom,
+          salesPrice: p.salesPrice,
+          category: p.productCategory,
+        }));
+
+        return toolSuccess({
+          items,
+          total_count: all.length,
+          next_cursor: nextCursor,
+        });
       } catch (err) {
-        process.stderr.write(`[tools/inventory] list_low_stock error: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(
+          `[tools/inventory] list_low_stock error: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // INV-06: list_suppliers — paginated suppliers list
+  // INV-06: list_suppliers -- vendor listing guidance
   // -------------------------------------------------------------------------
   server.tool(
     'list_suppliers',
-    'List all suppliers for the tenant with pagination.',
-    {
-      limit: z.number().int().min(1).optional(),
-      offset: z.number().int().min(0).optional(),
-    },
-    async ({ limit = 200, offset = 0 }) => {
+    'Vendor/supplier listing. POSibolt stores vendors in the business-partner master which can be very large. Use the search_contacts tool with type="vendor" for filtered results instead.',
+    {},
+    async () => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const [{ count }] = await txSql`
-            SELECT COUNT(*) AS count FROM suppliers
-          ` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
-
-          const items = await txSql`
-            SELECT
-              id,
-              name,
-              email,
-              phone,
-              address,
-              notes,
-              created_at,
-              updated_at
-            FROM suppliers
-            ORDER BY name ASC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
-
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
+        return toolSuccess({
+          message:
+            'POSibolt stores vendors as business partners. The full list can be very large. ' +
+            'Please use the search_contacts tool with type="vendor" to search for specific vendors by name or other criteria.',
+          suggestion: 'search_contacts',
+          suggestedParams: { type: 'vendor', searchText: '<vendor name>' },
         });
-        return toolSuccess(result);
       } catch (err) {
-        process.stderr.write(`[tools/inventory] list_suppliers error: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(
+          `[tools/inventory] list_suppliers error: ${err instanceof Error ? err.message : String(err)}\n`,
+        );
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // INV-07: get_supplier — single supplier by ID
-  // NOTE: products table has no supplier_id FK — return supplier fields only
+  // INV-07: get_supplier -- single vendor by POSibolt ID
   // -------------------------------------------------------------------------
   server.tool(
     'get_supplier',
-    'Get full details for a single supplier by its UUID. Note: the products table does not have a supplier_id column in v1, so no linked products are returned.',
+    'Get full details for a single vendor/supplier by their POSibolt business-partner ID.',
     {
-      id: z.string().uuid(),
+      vendorId: z.number().int().describe('POSibolt business-partner ID of the vendor'),
     },
-    async ({ id }) => {
+    async ({ vendorId }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const rows = await txSql`
-            SELECT
-              id,
-              name,
-              email,
-              phone,
-              address,
-              notes,
-              created_at,
-              updated_at
-            FROM suppliers
-            WHERE id = ${id}
-          `;
-          return rows[0] ?? null;
-        });
-        if (!result) {
-          return toolError('NOT_FOUND', 'Supplier not found');
+        const config = getErpConfig();
+        const data = await pbGet<Record<string, unknown>>(
+          config,
+          `/customermaster/${vendorId}`,
+        );
+
+        if (!data) {
+          return toolError('NOT_FOUND', `Vendor with ID ${vendorId} not found`);
         }
-        return toolSuccess(result);
+
+        return toolSuccess(data);
       } catch (err) {
-        process.stderr.write(`[tools/inventory] get_supplier error: ${err instanceof Error ? err.message : String(err)}\n`);
-        return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
+        const msg = err instanceof Error ? err.message : String(err);
+        // Distinguish 404-like errors from true failures
+        if (msg.includes('404') || msg.includes('not found')) {
+          return toolError('NOT_FOUND', `Vendor with ID ${vendorId} not found`);
+        }
+        process.stderr.write(`[tools/inventory] get_supplier error: ${msg}\n`);
+        return toolError('INTERNAL_ERROR', msg);
       }
-    }
+    },
   );
 }

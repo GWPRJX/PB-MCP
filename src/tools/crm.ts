@@ -1,258 +1,246 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import postgres from 'postgres';
 import { z } from 'zod';
-import { getTenantId } from '../context.js';
-import { withTenantContext } from '../db/client.js';
+import { getErpConfig } from '../context.js';
+import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess } from './errors.js';
+
+/* ------------------------------------------------------------------ */
+/*  POSibolt business-partner (BP) response shape                     */
+/* ------------------------------------------------------------------ */
+
+interface BpListItem {
+  customerId: number;
+  name: string;
+  name2?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  city?: string;
+  country?: string;
+  address1?: string;
+  customer?: boolean;
+  vendor?: boolean;
+  active?: boolean;
+  creditLimit?: number;
+  creditStatus?: string;
+}
+
+interface BpDetail extends BpListItem {
+  [key: string]: unknown; // allow extra fields from detailed endpoint
+}
+
+interface PendingOrder {
+  [key: string]: unknown;
+}
+
+interface OpenInvoice {
+  [key: string]: unknown;
+}
 
 /**
  * Register all 5 CRM MCP tools on the provided McpServer instance.
  *
  * Tools registered:
- *   CRM-01  list_contacts          — paginated contacts with optional type filter
- *   CRM-02  get_contact            — single contact by ID
- *   CRM-03  search_contacts        — ILIKE search across name, email, company
- *   CRM-04  get_contact_orders     — order summaries for a contact
- *   CRM-05  get_contact_invoices   — invoice summaries + outstanding balance for a contact
+ *   CRM-01  list_contacts          -- paginated business partners from POSibolt
+ *   CRM-02  get_contact            -- single customer by customerId
+ *   CRM-03  search_contacts        -- filter allbplist by name/email in JS
+ *   CRM-04  get_contact_orders     -- pending customer orders
+ *   CRM-05  get_contact_invoices   -- open invoices + balances
  *
- * CRITICAL: All queries use raw txSql inside withTenantContext — NOT the db Drizzle export.
- * The Drizzle db instance does not execute within the tenant transaction context.
+ * All tools call POSibolt REST API via pbGet (no local PostgreSQL).
  */
 export function registerCrmTools(server: McpServer): void {
   // -------------------------------------------------------------------------
-  // CRM-01: list_contacts — paginated contacts with optional type filter
+  // CRM-01: list_contacts -- paginated business partners
+  //
+  // WARNING: GET /customermaster/allbplist returns ALL business partners
+  // (can be 30K+). Pagination is applied in JS after fetching.
+  // For targeted lookups prefer search_contacts instead.
   // -------------------------------------------------------------------------
   server.tool(
     'list_contacts',
-    'List all contacts for the tenant with pagination. Optionally filter by type (e.g., customer, vendor, lead).',
+    'List business partners (customers/vendors) with pagination. WARNING: fetches full list from POSibolt then slices -- prefer search_contacts for targeted lookups. Optionally filter by type: "customer" or "vendor".',
     {
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
-      type: z.string().optional(),
+      type: z.enum(['customer', 'vendor']).optional(),
     },
-    async ({ limit = 200, offset = 0, type }) => {
+    async ({ limit = 50, offset = 0, type }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
+        const config = getErpConfig();
+        const allBp = await pbGet<BpListItem[]>(config, '/customermaster/allbplist');
+        const list = Array.isArray(allBp) ? allBp : [];
 
-          const [{ count }] = type
-            ? await txSql`SELECT COUNT(*) AS count FROM contacts WHERE type = ${type}` as [{ count: string }]
-            : await txSql`SELECT COUNT(*) AS count FROM contacts` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
+        // Optional type filter
+        const filtered = type
+          ? list.filter((bp) =>
+              type === 'customer' ? bp.customer === true : bp.vendor === true,
+            )
+          : list;
 
-          const items = type
-            ? await txSql`
-                SELECT id, name, email, phone, company, type, tags, last_contact_at, created_at
-                FROM contacts
-                WHERE type = ${type}
-                ORDER BY name ASC
-                LIMIT ${limit} OFFSET ${offset}
-              `
-            : await txSql`
-                SELECT id, name, email, phone, company, type, tags, last_contact_at, created_at
-                FROM contacts
-                ORDER BY name ASC
-                LIMIT ${limit} OFFSET ${offset}
-              `;
+        const totalCount = filtered.length;
+        const items = filtered.slice(offset, offset + limit);
+        const nextCursor = offset + items.length < totalCount ? offset + limit : null;
 
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
-        });
-        return toolSuccess(result);
+        return toolSuccess({ items, total_count: totalCount, next_cursor: nextCursor });
       } catch (err) {
         process.stderr.write(`[tools/crm] list_contacts error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // CRM-02: get_contact — single contact by ID
+  // CRM-02: get_contact -- single customer by customerId (number)
   // -------------------------------------------------------------------------
   server.tool(
     'get_contact',
-    'Get full details for a single contact by its UUID.',
+    'Get full details for a single business partner by its POSibolt customerId (number).',
     {
-      id: z.string().uuid(),
+      customerId: z.number().int().positive(),
     },
-    async ({ id }) => {
+    async ({ customerId }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const rows = await txSql`
-            SELECT id, tenant_id, name, email, phone, company, type, tags, notes, last_contact_at, created_at, updated_at
-            FROM contacts
-            WHERE id = ${id}
-          `;
-          return rows[0] ?? null;
-        });
-        if (!result) {
-          return toolError('NOT_FOUND', 'Contact not found');
+        const config = getErpConfig();
+        const detail = await pbGet<BpDetail>(config, `/customermaster/${customerId}`);
+        if (!detail) {
+          return toolError('NOT_FOUND', `Customer ${customerId} not found`);
         }
-        return toolSuccess(result);
+        return toolSuccess(detail);
       } catch (err) {
-        process.stderr.write(`[tools/crm] get_contact error: ${err instanceof Error ? err.message : String(err)}\n`);
-        return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
+        const msg = err instanceof Error ? err.message : String(err);
+        // POSibolt returns 404 or empty for missing customers
+        if (msg.includes('404')) {
+          return toolError('NOT_FOUND', `Customer ${customerId} not found`);
+        }
+        process.stderr.write(`[tools/crm] get_contact error: ${msg}\n`);
+        return toolError('INTERNAL_ERROR', msg);
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // CRM-03: search_contacts — ILIKE search across name, email, company
-  // Template literal interpolation of %query% is a parameterized bind in postgres.js
+  // CRM-03: search_contacts -- filter allbplist by name/email in JS
+  //
+  // POSibolt has no dedicated customer search endpoint, so we fetch the full
+  // BP list and filter client-side with case-insensitive matching.
   // -------------------------------------------------------------------------
   server.tool(
     'search_contacts',
-    'Search contacts using a case-insensitive text query matched against name, email, and company fields.',
+    'Search business partners by name or email (case-insensitive). Fetches full BP list from POSibolt and filters in JS.',
     {
       query: z.string().min(1),
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ query, limit = 200, offset = 0 }) => {
+    async ({ query, limit = 50, offset = 0 }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
-          const pattern = `%${query}%`;
+        const config = getErpConfig();
+        const allBp = await pbGet<BpListItem[]>(config, '/customermaster/allbplist');
+        const list = Array.isArray(allBp) ? allBp : [];
 
-          const [{ count }] = await txSql`
-            SELECT COUNT(*) AS count
-            FROM contacts
-            WHERE name ILIKE ${pattern}
-               OR email ILIKE ${pattern}
-               OR company ILIKE ${pattern}
-          ` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
-
-          const items = await txSql`
-            SELECT id, name, email, phone, company, type, tags, last_contact_at, created_at
-            FROM contacts
-            WHERE name ILIKE ${pattern}
-               OR email ILIKE ${pattern}
-               OR company ILIKE ${pattern}
-            ORDER BY name ASC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
-
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
+        const q = query.toLowerCase();
+        const filtered = list.filter((bp) => {
+          const name = (bp.name ?? '').toLowerCase();
+          const name2 = (bp.name2 ?? '').toLowerCase();
+          const email = (bp.email ?? '').toLowerCase();
+          return name.includes(q) || name2.includes(q) || email.includes(q);
         });
-        return toolSuccess(result);
+
+        const totalCount = filtered.length;
+        const items = filtered.slice(offset, offset + limit);
+        const nextCursor = offset + items.length < totalCount ? offset + limit : null;
+
+        return toolSuccess({ items, total_count: totalCount, next_cursor: nextCursor });
       } catch (err) {
         process.stderr.write(`[tools/crm] search_contacts error: ${err instanceof Error ? err.message : String(err)}\n`);
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // CRM-04: get_contact_orders — order summaries for a contact
-  // Check contact exists first, then return order summaries
+  // CRM-04: get_contact_orders -- pending customer orders
   // -------------------------------------------------------------------------
   server.tool(
     'get_contact_orders',
-    'Get a paginated list of order summaries for a specific contact. Returns NOT_FOUND if the contact does not exist.',
+    'Get pending sales orders for a customer by POSibolt customerId (number).',
     {
-      contact_id: z.string().uuid(),
+      customerId: z.number().int().positive(),
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ contact_id, limit = 200, offset = 0 }) => {
+    async ({ customerId, limit = 50, offset = 0 }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
+        const config = getErpConfig();
+        const orders = await pbGet<PendingOrder[]>(
+          config,
+          `/salesorder/pendingcustomerorders/${customerId}`,
+        );
+        const list = Array.isArray(orders) ? orders : [];
 
-          // Check contact exists (RLS scopes to this tenant)
-          const contactRows = await txSql`SELECT id FROM contacts WHERE id = ${contact_id}`;
-          if (contactRows.length === 0) return null;
+        const totalCount = list.length;
+        const items = list.slice(offset, offset + limit);
+        const nextCursor = offset + items.length < totalCount ? offset + limit : null;
 
-          const [{ count }] = await txSql`
-            SELECT COUNT(*) AS count FROM orders WHERE contact_id = ${contact_id}
-          ` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
-
-          const items = await txSql`
-            SELECT id, order_date, status, total
-            FROM orders
-            WHERE contact_id = ${contact_id}
-            ORDER BY order_date DESC, created_at DESC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
-
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor };
-        });
-
-        if (!result) {
-          return toolError('NOT_FOUND', 'Contact not found');
-        }
-        return toolSuccess(result);
+        return toolSuccess({ items, total_count: totalCount, next_cursor: nextCursor });
       } catch (err) {
-        process.stderr.write(`[tools/crm] get_contact_orders error: ${err instanceof Error ? err.message : String(err)}\n`);
-        return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('404')) {
+          return toolError('NOT_FOUND', `Customer ${customerId} not found or has no pending orders`);
+        }
+        process.stderr.write(`[tools/crm] get_contact_orders error: ${msg}\n`);
+        return toolError('INTERNAL_ERROR', msg);
       }
-    }
+    },
   );
 
   // -------------------------------------------------------------------------
-  // CRM-05: get_contact_invoices — invoice summaries + outstanding balance for a contact
-  // outstanding_balance = SUM(total) WHERE status NOT IN ('paid', 'cancelled')
-  // Check contact exists first, then return invoice summaries + balance
+  // CRM-05: get_contact_invoices -- open invoices + balances
   // -------------------------------------------------------------------------
   server.tool(
     'get_contact_invoices',
-    'Get a paginated list of invoice summaries plus outstanding balance for a specific contact. Returns NOT_FOUND if the contact does not exist.',
+    'Get open invoices and outstanding balance for a customer by POSibolt customerId (number).',
     {
-      contact_id: z.string().uuid(),
+      customerId: z.number().int().positive(),
       limit: z.number().int().min(1).optional(),
       offset: z.number().int().min(0).optional(),
     },
-    async ({ contact_id, limit = 200, offset = 0 }) => {
+    async ({ customerId, limit = 50, offset = 0 }) => {
       try {
-        const tenantId = getTenantId();
-        const result = await withTenantContext(tenantId, async (tx) => {
-          const txSql = tx as unknown as postgres.Sql;
+        const config = getErpConfig();
+        const invoices = await pbGet<OpenInvoice[]>(
+          config,
+          '/customermaster/getCustomerOpenInvoices',
+          { customerId },
+        );
+        const list = Array.isArray(invoices) ? invoices : [];
 
-          // Check contact exists (RLS scopes to this tenant)
-          const contactRows = await txSql`SELECT id FROM contacts WHERE id = ${contact_id}`;
-          if (contactRows.length === 0) return null;
+        const totalCount = list.length;
+        const items = list.slice(offset, offset + limit);
+        const nextCursor = offset + items.length < totalCount ? offset + limit : null;
 
-          const [{ count }] = await txSql`
-            SELECT COUNT(*) AS count FROM invoices WHERE contact_id = ${contact_id}
-          ` as [{ count: string }];
-          const totalCount = parseInt(count, 10);
-
-          const items = await txSql`
-            SELECT id, issued_at, due_at, status, total, paid_at
-            FROM invoices
-            WHERE contact_id = ${contact_id}
-            ORDER BY issued_at DESC, created_at DESC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
-
-          const [{ outstanding_balance }] = await txSql`
-            SELECT COALESCE(SUM(total), 0)::text AS outstanding_balance
-            FROM invoices
-            WHERE contact_id = ${contact_id}
-              AND status NOT IN ('paid', 'cancelled')
-          ` as [{ outstanding_balance: string }];
-
-          const nextCursor = offset + items.length < totalCount ? offset + limit : null;
-          return { items, total_count: totalCount, next_cursor: nextCursor, outstanding_balance };
-        });
-
-        if (!result) {
-          return toolError('NOT_FOUND', 'Contact not found');
+        // Compute outstanding balance from full list
+        let outstandingBalance = 0;
+        for (const inv of list) {
+          const amt = Number(inv.openAmt ?? inv.grandTotal ?? inv.total ?? 0);
+          if (!Number.isNaN(amt)) outstandingBalance += amt;
         }
-        return toolSuccess(result);
+
+        return toolSuccess({
+          items,
+          total_count: totalCount,
+          next_cursor: nextCursor,
+          outstanding_balance: outstandingBalance,
+        });
       } catch (err) {
-        process.stderr.write(`[tools/crm] get_contact_invoices error: ${err instanceof Error ? err.message : String(err)}\n`);
-        return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('404')) {
+          return toolError('NOT_FOUND', `Customer ${customerId} not found or has no open invoices`);
+        }
+        process.stderr.write(`[tools/crm] get_contact_invoices error: ${msg}\n`);
+        return toolError('INTERNAL_ERROR', msg);
       }
-    }
+    },
   );
 }
