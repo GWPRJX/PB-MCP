@@ -10,7 +10,7 @@ Small business owners and their AI assistants can manage real ERP operations —
 
 ## Current State
 
-**Latest shipped version:** v2.0 (2026-03-18)
+**Latest shipped version:** v2.1 (2026-03-19)
 
 **What's live:**
 - 27 MCP tools (21 read + 6 write) across Inventory, Orders, CRM, KB, and Write domains
@@ -23,8 +23,11 @@ Small business owners and their AI assistants can manage real ERP operations —
 - Setup tab on tenant detail page with MCP client config snippets (Claude Desktop, Cursor, Generic) and copy buttons
 - Browser print-to-PDF export for tenant setup instructions
 - Tooltips on all technical terms across dashboard pages
+- README with project overview, quickstart, and MCP client config
+- Production Dockerfile + docker-compose.prod.yml
+- Deployment guides for Linux/VPS, Docker, and Windows Server
 
-**Tech stack:** TypeScript, Node.js 22 LTS, Fastify 5, PostgreSQL + RLS, Drizzle ORM, MCP SDK 1.27.x, React + Vite + Tailwind (dashboard)
+**Tech stack:** TypeScript, Node.js 22 LTS, Fastify 5, PostgreSQL + RLS, Drizzle ORM, MCP SDK 1.27.x, React + Vite + Tailwind (dashboard), Docker (production)
 
 ## Milestones
 
@@ -36,16 +39,9 @@ Read-only MCP server with 21 tools, PostgreSQL RLS tenant isolation, API key aut
 
 Tool access control, audit logging, JWT dashboard auth, API key expiry, React admin dashboard, API doc upload, 6 MCP write tools. 3 phases, 7 plans, 26/26 requirements delivered.
 
-### v2.1 — UI Polish + Setup Documentation (IN PROGRESS)
+### v2.1 — UI Polish + Setup Documentation (COMPLETE 2026-03-19)
 
-**Goal:** Make the server easy to set up and use for anyone — polish dashboard UX, fix KB docs management, improve tenant onboarding flow, and provide comprehensive setup documentation.
-
-**Target features:**
-- Server-level API doc management with manual YT sync
-- Guided tenant onboarding (credentials-first, test-before-key)
-- Per-tenant PDF export with MCP client setup instructions
-- Tooltips for all technical terms in dashboard
-- README overhaul + deployment guides (Linux, Docker, Windows)
+Dashboard UX polish, KB docs management, tenant onboarding wizard, Setup tab with MCP config snippets, PDF export, tooltips, README, and deployment guides (Linux, Docker, Windows). 4 phases, 8 plans, 16/16 requirements delivered.
 
 ## Constraints
 
@@ -82,4 +78,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-19 — Phase 10 (Dashboard UX Polish) complete*
+*Last updated: 2026-03-19 — v2.1 milestone complete (Phase 11 Setup Documentation)*
