@@ -23,8 +23,8 @@ Requirements for v2.1 release. Each maps to roadmap phases.
 
 ### Dashboard UX
 
-- [ ] **UX-01**: Dashboard shows MCP client setup instructions (URL, API key, where to add them)
-- [ ] **UX-02**: Setup instructions cover Claude Desktop, Cursor, and generic MCP client
+- [x] **UX-01**: Dashboard shows MCP client setup instructions (URL, API key, where to add them)
+- [x] **UX-02**: Setup instructions cover Claude Desktop, Cursor, and generic MCP client
 - [ ] **UX-03**: Admin can export per-tenant branded PDF with setup + usage instructions (tenant name, MCP URL, masked API key)
 - [ ] **UX-04**: Tooltips added for all technical terms (API key, slug, tool permissions, ERP config, etc.)
 
@@ -60,8 +60,8 @@ None — v2.1 is a polish/documentation milestone.
 | ONBOARD-01 | Phase 9 | Complete |
 | ONBOARD-02 | Phase 9 | Complete |
 | ONBOARD-03 | Phase 9 | Complete |
-| UX-01 | Phase 10 | Pending |
-| UX-02 | Phase 10 | Pending |
+| UX-01 | Phase 10 | Complete |
+| UX-02 | Phase 10 | Complete |
 | UX-03 | Phase 10 | Pending |
 | UX-04 | Phase 10 | Pending |
 | DOCS-01 | Phase 11 | Pending |

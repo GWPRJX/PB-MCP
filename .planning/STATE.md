@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — UI Polish + Setup Documentation
 status: unknown
-stopped_at: Phase 10 context gathered
-last_updated: "2026-03-19T15:48:59.723Z"
+stopped_at: Completed 10-01-PLAN.md (Tooltip + Setup tab)
+last_updated: "2026-03-19T16:55:32Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
 ---
 
 # STATE: PB MCP
@@ -30,8 +30,8 @@ progress:
 
 ## Current Position
 
-Phase: 10 (dashboard-ux-polish) — NEXT
-Plan: 1 of N
+Phase: 10 (dashboard-ux-polish) — EXECUTING
+Plan: 2 of 2
 
 ## v2.1 Phase Map
 
@@ -39,7 +39,7 @@ Plan: 1 of N
 |-------|------|--------------|--------|
 | 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | Complete (2026-03-19) |
 | 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Complete (2026-03-19) |
-| 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | Not started |
+| 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | In Progress (1/2 plans) |
 | 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | Not started |
 
 ---
@@ -94,20 +94,27 @@ Plan: 1 of N
 - **scheduler returns void:** Changed from `ReturnType<typeof setInterval>` to `void` because DB interval read is async — call site in index.ts already ignores return value
 - **Token masking at GET endpoint:** Token displayed as first4****last4 — raw token never exposed via GET; write-only via PUT
 
+### Phase 10 Plan 1 Decisions
+
+- **API keys not maskable on Setup tab:** Raw key only shown once at creation (SHA-256 hash stored); Setup tab shows YOUR_API_KEY placeholder with clear note directing admins to their creation-time record
+- **handleExportPdf placeholder:** Navigates to Setup tab for now; full print-to-PDF flow with print CSS is Plan 02 scope
+- **Tooltip imported in TenantDetailPage now:** Establishes dependency and is immediately used on Setup tab labels; Plan 02 adds tooltips across all pages
+- **Tailwind group-hover tooltip pattern:** No external library needed; pure CSS via group/group-hover classes on wrapper span
+
 ### v2.1 Notes
 
 - KB-01 changes doc upload from per-tenant to server-level — check existing upload endpoint scope
 - ONBOARD flow changes tenant creation — existing `POST /admin/tenants` flow needs redesign
-- UX-03 (PDF export) requires a PDF generation library — no current dependency for this
+- UX-03 (PDF export) uses browser window.print() — no new library needed (decided in 10-CONTEXT.md)
 - DOCS-01–04 are pure markdown/text work, no code changes
 
 ---
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T15:48:59.720Z
-**Stopped at:** Phase 10 context gathered
-**Next action:** Execute Phase 10 (Dashboard UX Polish)
+**Last session:** 2026-03-19T16:55:32Z
+**Stopped at:** Completed 10-01-PLAN.md (Tooltip component + Setup tab)
+**Next action:** Execute 10-02-PLAN.md (PDF print styles + tooltips across all dashboard pages)
 
 ---
 *State initialized: 2026-03-07*
