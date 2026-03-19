@@ -27,7 +27,7 @@
 ### Phases
 
 - [x] **Phase 8: KB/Docs Management** - YouTrack config from dashboard, manual sync, server-level doc upload
-- [ ] **Phase 9: Tenant Onboarding Flow** - Credentials-first, connection-tested tenant creation flow
+- [x] **Phase 9: Tenant Onboarding Flow** - Credentials-first, connection-tested tenant creation flow (completed 2026-03-19)
 - [ ] **Phase 10: Dashboard UX Polish** - MCP client setup instructions, PDF export, and tooltips for all technical terms
 - [ ] **Phase 11: Setup Documentation** - README overhaul and step-by-step deployment guides for Linux, Docker, and Windows
 
@@ -57,7 +57,7 @@ Plans:
   1. The tenant creation form prompts for ERP credentials (host, username, password, company) before any other step
   2. After entering ERP credentials, admin sees a "Test Connection" step and receives a clear pass or fail result before continuing
   3. The API key generation step only becomes available after a successful ERP connection test — the flow cannot skip this gate
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 09-01-PLAN.md — Backend: test-erp-credentials endpoint (no tenant required) + tenant creation accepts ERP config
@@ -90,7 +90,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 8. KB/Docs Management | 2/2 | Complete | 2026-03-19 |
-| 9. Tenant Onboarding Flow | 1/2 | In Progress|  |
+| 9. Tenant Onboarding Flow | 2/2 | Complete   | 2026-03-19 |
 | 10. Dashboard UX Polish | 0/? | Not started | - |
 | 11. Setup Documentation | 0/? | Not started | - |
 

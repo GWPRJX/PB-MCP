@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Core MCP Server
 status: unknown
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-03-19T14:36:04.737Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-19T14:48:00Z"
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 27
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # STATE: PB MCP
@@ -30,15 +30,15 @@ progress:
 
 ## Current Position
 
-Phase: 09 (tenant-onboarding) — EXECUTING
-Plan: 2 of 2
+Phase: 10 (dashboard-ux-polish) — NEXT
+Plan: 1 of N
 
 ## v2.1 Phase Map
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
 | 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | Complete (2026-03-19) |
-| 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Not started |
+| 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Complete (2026-03-19) |
 | 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | Not started |
 | 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | Not started |
 
@@ -71,6 +71,12 @@ Plan: 2 of 2
 5. **Idempotency on financial writes** — write tools should handle duplicate submissions gracefully
 6. **JWT secret management** — JWT signing secret must be in env var, not hardcoded
 
+### Phase 9 Plan 2 Decisions
+
+- **Wizard step state inline (not extracted):** Single component with step 1|2|3 state plus all field state — simpler than sub-components for a short wizard
+- **connectionTested boolean gates Next on step 2:** Separate from testResult?.connected — ERP field onChange clears both connectionTested and testResult, forcing re-test; prevents stale-result bugs
+- **Create Another resets all state:** Single handler resets step=1, all fields empty, connectionTested=false, result=null — no partial-state edge cases
+
 ### Phase 9 Plan 1 Decisions
 
 - **testErpCredentials dynamic import:** Uses dynamic import in router consistent with existing testErpConnection pattern — avoids circular dependency risk
@@ -99,9 +105,9 @@ Plan: 2 of 2
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T14:36:04.735Z
-**Stopped at:** Completed 09-01-PLAN.md
-**Next action:** Execute Phase 9 Plan 2 (Tenant Onboarding Wizard UI)
+**Last session:** 2026-03-19T14:48:00Z
+**Stopped at:** Completed 09-02-PLAN.md
+**Next action:** Execute Phase 10 (Dashboard UX Polish)
 
 ---
 *State initialized: 2026-03-07*

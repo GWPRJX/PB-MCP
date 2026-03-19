@@ -17,9 +17,9 @@ Requirements for v2.1 release. Each maps to roadmap phases.
 
 ### Tenant Onboarding
 
-- [ ] **ONBOARD-01**: Tenant creation flow prompts for ERP credentials first
+- [x] **ONBOARD-01**: Tenant creation flow prompts for ERP credentials first
 - [x] **ONBOARD-02**: ERP connection is tested before proceeding to API key generation
-- [ ] **ONBOARD-03**: API key is only generated after successful ERP connection test
+- [x] **ONBOARD-03**: API key is only generated after successful ERP connection test
 
 ### Dashboard UX
 
@@ -57,9 +57,9 @@ None — v2.1 is a polish/documentation milestone.
 | KB-03 | Phase 8 | Complete |
 | KB-04 | Phase 8 | Pending |
 | KB-05 | Phase 8 | Pending |
-| ONBOARD-01 | Phase 9 | Pending |
+| ONBOARD-01 | Phase 9 | Complete |
 | ONBOARD-02 | Phase 9 | Complete |
-| ONBOARD-03 | Phase 9 | Pending |
+| ONBOARD-03 | Phase 9 | Complete |
 | UX-01 | Phase 10 | Pending |
 | UX-02 | Phase 10 | Pending |
 | UX-03 | Phase 10 | Pending |
