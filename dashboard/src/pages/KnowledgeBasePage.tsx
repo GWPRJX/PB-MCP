@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Tooltip } from '../components/Tooltip';
 import {
   getKbSettings,
   updateKbSettings,
@@ -21,17 +22,23 @@ export function KnowledgeBasePage() {
       <h1 className="text-2xl font-semibold text-gray-900 mb-8">Knowledge Base</h1>
 
       <div className="mb-10">
-        <h2 className="text-lg font-medium text-gray-800 mb-4">YouTrack Configuration</h2>
+        <h2 className="text-lg font-medium text-gray-800 mb-4">
+          <span className="inline-flex items-center gap-1">YouTrack Configuration<Tooltip text="Connect to a YouTrack project to automatically sync knowledge base articles. Articles are pulled on a schedule and made searchable via MCP tools." /></span>
+        </h2>
         <YouTrackConfigSection />
       </div>
 
       <div className="mb-10">
-        <h2 className="text-lg font-medium text-gray-800 mb-4">Sync Status</h2>
+        <h2 className="text-lg font-medium text-gray-800 mb-4">
+          <span className="inline-flex items-center gap-1">Sync Status<Tooltip text="Shows when the last YouTrack sync happened, how many articles were pulled, and whether it succeeded. Use Sync Now to trigger an immediate refresh." /></span>
+        </h2>
         <SyncStatusSection />
       </div>
 
       <div className="mb-10">
-        <h2 className="text-lg font-medium text-gray-800 mb-4">Uploaded Documents</h2>
+        <h2 className="text-lg font-medium text-gray-800 mb-4">
+          <span className="inline-flex items-center gap-1">Uploaded Documents<Tooltip text="Manually uploaded documentation that supplements YouTrack articles. These are searchable by all tenants via MCP knowledge base tools." /></span>
+        </h2>
         <UploadedDocsSection />
       </div>
     </div>
@@ -107,7 +114,9 @@ function YouTrackConfigSection() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">API Token</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <span className="inline-flex items-center gap-1">API Token<Tooltip text="A permanent token from YouTrack that grants read access to your project's articles. Generate one in YouTrack under Profile > Authentication > New Token." /></span>
+          </label>
           <input
             type="password"
             value={settings.youtrackToken ?? ''}
@@ -132,7 +141,9 @@ function YouTrackConfigSection() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Sync Interval (minutes)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <span className="inline-flex items-center gap-1">Sync Interval (minutes)<Tooltip text="How often the server automatically pulls new and updated articles from YouTrack. Lower values mean fresher data but more API calls to YouTrack." /></span>
+          </label>
           <input
             type="number"
             value={intervalMinutes}

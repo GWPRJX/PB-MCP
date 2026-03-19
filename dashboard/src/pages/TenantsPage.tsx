@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listTenants, type Tenant } from '../api';
+import { Tooltip } from '../components/Tooltip';
 
 export function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -37,10 +38,18 @@ export function TenantsPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Slug</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Plan</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Keys</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">
+                  <span className="inline-flex items-center gap-1">Slug<Tooltip text="A short, URL-safe identifier for this tenant. Used in MCP server configuration and API routes. Cannot be changed after creation." /></span>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">
+                  <span className="inline-flex items-center gap-1">Plan<Tooltip text="The subscription tier for this tenant. Determines which features and rate limits apply. Options are Standard, Pro, and Enterprise." /></span>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">
+                  <span className="inline-flex items-center gap-1">Status<Tooltip text="Whether this tenant is currently active and can use the MCP server. Inactive tenants cannot authenticate or make tool calls." /></span>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">
+                  <span className="inline-flex items-center gap-1">Keys<Tooltip text="The number of API keys issued for this tenant. Each key lets an MCP client authenticate as this tenant to access ERP data." /></span>
+                </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Created</th>
               </tr>
             </thead>

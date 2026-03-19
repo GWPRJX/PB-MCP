@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createTenant, testErpCredentials } from '../api';
+import { Tooltip } from '../components/Tooltip';
 
 const wizardSteps = [
   { num: 1, label: 'Tenant Info' },
@@ -8,16 +9,25 @@ const wizardSteps = [
   { num: 3, label: 'API Key' },
 ];
 
-const erpFields = [
-  { key: 'erpBaseUrl', label: 'Base URL', placeholder: 'https://bigblue.posibolt.com', type: 'url' },
-  { key: 'erpClientId', label: 'Client ID', placeholder: 'OAuth client_id', type: 'text' },
-  { key: 'erpAppSecret', label: 'App Secret', placeholder: 'OAuth app_secret', type: 'password' },
-  { key: 'erpUsername', label: 'Username', placeholder: 'POSibolt username', type: 'text' },
-  { key: 'erpPassword', label: 'Password', placeholder: 'POSibolt password', type: 'password' },
-  { key: 'erpTerminal', label: 'Terminal', placeholder: 'Terminal 1', type: 'text' },
-] as const;
+const erpFieldTooltips: Record<string, string> = {
+  erpBaseUrl: 'The root URL of the POSibolt ERP server for this tenant.',
+  erpClientId: 'The OAuth client identifier issued by POSibolt.',
+  erpAppSecret: 'The OAuth client secret from POSibolt. Never share this value.',
+  erpUsername: 'The POSibolt user account for ERP operations.',
+  erpPassword: 'The password for the POSibolt user account.',
+  erpTerminal: 'The POSibolt terminal identifier for transaction operations.',
+};
 
-type ErpKey = typeof erpFields[number]['key'];
+const erpFields = [
+  { key: 'erpBaseUrl' as const, label: 'Base URL', placeholder: 'https://bigblue.posibolt.com', type: 'url' },
+  { key: 'erpClientId' as const, label: 'Client ID', placeholder: 'OAuth client_id', type: 'text' },
+  { key: 'erpAppSecret' as const, label: 'App Secret', placeholder: 'OAuth app_secret', type: 'password' },
+  { key: 'erpUsername' as const, label: 'Username', placeholder: 'POSibolt username', type: 'text' },
+  { key: 'erpPassword' as const, label: 'Password', placeholder: 'POSibolt password', type: 'password' },
+  { key: 'erpTerminal' as const, label: 'Terminal', placeholder: 'Terminal 1', type: 'text' },
+];
+
+type ErpKey = 'erpBaseUrl' | 'erpClientId' | 'erpAppSecret' | 'erpUsername' | 'erpPassword' | 'erpTerminal';
 
 export function CreateTenantPage() {
   const navigate = useNavigate();
@@ -223,7 +233,9 @@ export function CreateTenantPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <span className="inline-flex items-center gap-1">Slug<Tooltip text="A short, URL-safe name for this tenant. Used in MCP configuration and cannot be changed later. Auto-generated from the name." /></span>
+            </label>
             <input
               type="text"
               value={slug}
@@ -235,7 +247,9 @@ export function CreateTenantPage() {
             <p className="text-xs text-gray-400 mt-1">Lowercase letters, numbers, and hyphens only</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Plan</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <span className="inline-flex items-center gap-1">Plan<Tooltip text="The subscription tier for this tenant. Determines feature access and rate limits. Can be changed later from the tenant detail page." /></span>
+            </label>
             <select
               value={plan}
               onChange={(e) => setPlan(e.target.value)}
@@ -270,18 +284,42 @@ export function CreateTenantPage() {
       {step === 2 && (
         <div>
           <div className="space-y-3">
-            {erpFields.map((f) => (
-              <div key={f.key}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{f.label}</label>
-                <input
-                  type={f.type}
-                  value={erpFields_state[f.key]}
-                  onChange={(e) => handleErpFieldChange(f.key, e.target.value)}
-                  placeholder={f.placeholder}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <span className="inline-flex items-center gap-1">Base URL<Tooltip text="The root URL of the POSibolt ERP server for this tenant." /></span>
+              </label>
+              <input type="url" value={erpFields_state.erpBaseUrl} onChange={(e) => handleErpFieldChange('erpBaseUrl', e.target.value)} placeholder="https://bigblue.posibolt.com" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <span className="inline-flex items-center gap-1">Client ID<Tooltip text="The OAuth client identifier issued by POSibolt." /></span>
+              </label>
+              <input type="text" value={erpFields_state.erpClientId} onChange={(e) => handleErpFieldChange('erpClientId', e.target.value)} placeholder="OAuth client_id" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <span className="inline-flex items-center gap-1">App Secret<Tooltip text="The OAuth client secret from POSibolt. Never share this value." /></span>
+              </label>
+              <input type="password" value={erpFields_state.erpAppSecret} onChange={(e) => handleErpFieldChange('erpAppSecret', e.target.value)} placeholder="OAuth app_secret" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <span className="inline-flex items-center gap-1">Username<Tooltip text="The POSibolt user account for ERP operations." /></span>
+              </label>
+              <input type="text" value={erpFields_state.erpUsername} onChange={(e) => handleErpFieldChange('erpUsername', e.target.value)} placeholder="POSibolt username" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <span className="inline-flex items-center gap-1">Password<Tooltip text="The password for the POSibolt user account." /></span>
+              </label>
+              <input type="password" value={erpFields_state.erpPassword} onChange={(e) => handleErpFieldChange('erpPassword', e.target.value)} placeholder="POSibolt password" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <span className="inline-flex items-center gap-1">Terminal<Tooltip text="The POSibolt terminal identifier for transaction operations." /></span>
+              </label>
+              <input type="text" value={erpFields_state.erpTerminal} onChange={(e) => handleErpFieldChange('erpTerminal', e.target.value)} placeholder="Terminal 1" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
           </div>
 
           <div className="mt-4">
