@@ -30,7 +30,7 @@
 
 - [x] **Phase 8: KB/Docs Management** - YouTrack config from dashboard, manual sync, server-level doc upload
 - [x] **Phase 9: Tenant Onboarding Flow** - Credentials-first, connection-tested tenant creation flow (completed 2026-03-19)
-- [ ] **Phase 10: Dashboard UX Polish** - MCP client setup instructions, PDF export, and tooltips for all technical terms
+- [x] **Phase 10: Dashboard UX Polish** - MCP client setup instructions, PDF export, and tooltips for all technical terms (completed 2026-03-19)
 - [ ] **Phase 11: Setup Documentation** - README overhaul and step-by-step deployment guides for Linux, Docker, and Windows
 
 ### Phase Details
@@ -74,7 +74,7 @@ Plans:
   2. Setup instructions include configuration snippets for Claude Desktop, Cursor, and a generic JSON MCP client
   3. Admin can click "Export PDF" on a tenant and download a branded PDF containing tenant name, MCP URL, masked API key, and usage instructions
   4. Every technical term in the dashboard (API key, slug, tool permissions, ERP config, etc.) has a tooltip that explains it in plain language on hover
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 10-01-PLAN.md — Tooltip component + Setup tab with MCP client config snippets and copy buttons
@@ -97,7 +97,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 8. KB/Docs Management | 2/2 | Complete | 2026-03-19 |
 | 9. Tenant Onboarding Flow | 2/2 | Complete   | 2026-03-19 |
-| 10. Dashboard UX Polish | 1/2 | In Progress|  |
+| 10. Dashboard UX Polish | 2/2 | Complete   | 2026-03-19 |
 | 11. Setup Documentation | 0/? | Not started | - |
 
 ### v2.1 Coverage

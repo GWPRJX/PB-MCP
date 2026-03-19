@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — UI Polish + Setup Documentation
 status: unknown
-stopped_at: Completed 10-01-PLAN.md (Tooltip + Setup tab)
-last_updated: "2026-03-19T16:55:32Z"
+stopped_at: Completed 10-02-PLAN.md (Tooltips + Print-to-PDF)
+last_updated: "2026-03-19T17:06:18.524Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # STATE: PB MCP
@@ -30,8 +30,8 @@ progress:
 
 ## Current Position
 
-Phase: 10 (dashboard-ux-polish) — EXECUTING
-Plan: 2 of 2
+Phase: 10 (dashboard-ux-polish) — COMPLETE
+Phase: 11 (setup-documentation) — NEXT
 
 ## v2.1 Phase Map
 
@@ -39,7 +39,7 @@ Plan: 2 of 2
 |-------|------|--------------|--------|
 | 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | Complete (2026-03-19) |
 | 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Complete (2026-03-19) |
-| 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | In Progress (1/2 plans) |
+| 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | Complete (2026-03-19) |
 | 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | Not started |
 
 ---
@@ -94,6 +94,13 @@ Plan: 2 of 2
 - **scheduler returns void:** Changed from `ReturnType<typeof setInterval>` to `void` because DB interval read is async — call site in index.ts already ignores return value
 - **Token masking at GET endpoint:** Token displayed as first4****last4 — raw token never exposed via GET; write-only via PUT
 
+### Phase 10 Plan 2 Decisions
+
+- **Inlined ERP fields in CreateTenantPage Step 2:** Loop approach produces 1 source `<Tooltip` occurrence rendering 6 instances; inlined for explicit source-count compliance
+- **Print-only div shows all 3 configs unconditionally:** PDF export always contains complete setup info regardless of which snippet tab was active on screen
+- **handleExportPdf: setTab then setTimeout(window.print, 100):** Navigates to Setup tab first so print-only div renders, then triggers print after 100ms delay
+- **satisfies keyword for ErpTab fields array:** Replaced `as const` with `satisfies` to accommodate tooltip field while preserving key narrowing
+
 ### Phase 10 Plan 1 Decisions
 
 - **API keys not maskable on Setup tab:** Raw key only shown once at creation (SHA-256 hash stored); Setup tab shows YOUR_API_KEY placeholder with clear note directing admins to their creation-time record
@@ -112,9 +119,9 @@ Plan: 2 of 2
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T16:55:32Z
-**Stopped at:** Completed 10-01-PLAN.md (Tooltip component + Setup tab)
-**Next action:** Execute 10-02-PLAN.md (PDF print styles + tooltips across all dashboard pages)
+**Last session:** 2026-03-19T17:06:18.517Z
+**Stopped at:** Completed 10-02-PLAN.md (Tooltips + Print-to-PDF)
+**Next action:** Execute Phase 11 — Setup Documentation (README + deployment guides)
 
 ---
 *State initialized: 2026-03-07*
