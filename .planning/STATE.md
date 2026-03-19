@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Core MCP Server
 status: unknown
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-19T10:43:19Z"
+stopped_at: Completed 08-02-PLAN.md (checkpoint:human-verify pending)
+last_updated: "2026-03-19T10:49:23Z"
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # STATE: PB MCP
@@ -30,14 +30,14 @@ progress:
 
 ## Current Position
 
-Phase: 08 (kb-docs-management) — EXECUTING
-Plan: 2 of 2
+Phase: 08 (kb-docs-management) — CHECKPOINT (human-verify pending)
+Plan: 2 of 2 (tasks complete, awaiting verification)
 
 ## v2.1 Phase Map
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | In Progress (1/2 plans done) |
+| 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | In Progress (2/2 plans done, verification pending) |
 | 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Not started |
 | 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | Not started |
 | 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | Not started |
@@ -71,6 +71,11 @@ Plan: 2 of 2
 5. **Idempotency on financial writes** — write tools should handle duplicate submissions gracefully
 6. **JWT secret management** — JWT signing secret must be in env var, not hardcoded
 
+### Phase 8 Plan 2 Decisions
+
+- **KnowledgeBasePage sub-components:** Internal-only section functions (YouTrackConfigSection, SyncStatusSection, UploadedDocsSection) keep file self-contained without over-engineering
+- **Token update guard:** Check both changed AND not-all-asterisks before including token in PUT payload — prevents overwriting token with masked placeholder
+
 ### Phase 8 Plan 1 Decisions
 
 - **server_settings as key-value store:** Simple TEXT PRIMARY KEY / TEXT value table — avoids schema migrations for each new setting, reads grouped by key, UPSERT pattern for updates
@@ -89,9 +94,9 @@ Plan: 2 of 2
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T10:43:19Z
-**Stopped at:** Completed 08-01-PLAN.md
-**Next action:** Execute 08-02-PLAN.md (KB settings dashboard page)
+**Last session:** 2026-03-19T10:49:23Z
+**Stopped at:** Completed 08-02-PLAN.md tasks, checkpoint:human-verify pending
+**Next action:** After human verification, update phase 8 to complete, begin 09-tenant-onboarding
 
 ---
 *State initialized: 2026-03-07*
