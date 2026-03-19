@@ -173,7 +173,7 @@ Migrations create all tables, roles, and RLS policies. Run them as the superuser
 npm run migrate:up
 ```
 
-This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The nine migrations execute in order:
+This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The ten migrations execute in order:
 
 | Migration | What it creates |
 |-----------|----------------|
@@ -186,6 +186,7 @@ This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The nine migrations
 | `000007` | `tool_permissions` table (RLS) + `allowed_tools` column on api_keys |
 | `000008` | `audit_log` table (append-only, RLS) |
 | `000009` | `expires_at` column on api_keys (optional key expiry) |
+| `000010` | `server_settings` table (key-value store for dashboard-configurable settings) |
 
 **Set the app_login password to match DATABASE_URL:**
 
@@ -212,7 +213,7 @@ psql "$DATABASE_MIGRATION_URL" -c "
 
 ```bash
 npm run migrate:status
-# Should print: Version: 9 (the latest migration number)
+# Should print: Version: 10 (the latest migration number)
 ```
 
 ---
@@ -228,7 +229,7 @@ export NODE_ENV=test   # or: set NODE_ENV=test on Windows
 npm test
 ```
 
-Expected output: all tests pass across 18 test files (DB, admin, MCP, tools, KB, smoke). If any test fails, the most common cause is a misconfigured database connection or missing role permissions.
+Expected output: all tests pass across 19 test files (DB, admin, MCP, tools, KB, smoke). If any test fails, the most common cause is a misconfigured database connection or missing role permissions.
 
 ---
 
