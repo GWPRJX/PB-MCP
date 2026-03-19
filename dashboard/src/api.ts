@@ -145,7 +145,17 @@ export const listTenants = () => api<Tenant[]>('/tenants');
 
 export const getTenant = (id: string) => api<TenantDetail>(`/tenants/${id}`);
 
-export const createTenant = (data: { name: string; slug: string; plan?: string }) =>
+export const createTenant = (data: {
+  name: string;
+  slug: string;
+  plan?: string;
+  erpBaseUrl?: string;
+  erpClientId?: string;
+  erpAppSecret?: string;
+  erpUsername?: string;
+  erpPassword?: string;
+  erpTerminal?: string;
+}) =>
   api<{ tenantId: string; apiKey: string }>('/tenants', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -184,6 +194,19 @@ export const updateErpConfig = (tenantId: string, config: Record<string, string>
 export const testConnection = (tenantId: string) =>
   api<{ connected: boolean; message: string }>(`/tenants/${tenantId}/test-connection`, {
     method: 'POST',
+  });
+
+export const testErpCredentials = (credentials: {
+  erpBaseUrl: string;
+  erpClientId: string;
+  erpAppSecret: string;
+  erpUsername: string;
+  erpPassword: string;
+  erpTerminal: string;
+}) =>
+  api<{ connected: boolean; message: string }>('/test-erp-credentials', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
   });
 
 export const getAuditLog = (tenantId: string, params?: { limit?: number; offset?: number; toolName?: string; status?: string }) => {
