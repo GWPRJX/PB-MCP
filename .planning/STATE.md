@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — UI Polish + Setup Documentation
-status: in-progress
-stopped_at: Completed 11-01-PLAN.md (README + Docker deployment infrastructure)
-last_updated: "2026-03-19T18:05:02.864Z"
+status: complete
+stopped_at: Completed 11-02-PLAN.md (Linux/VPS and Windows Server deployment guides)
+last_updated: "2026-03-19T18:11:35Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 8
-  completed_plans: 7
-  percent: 88
-  bar: "[█████████░] 88%"
+  completed_plans: 8
 ---
 
 # STATE: PB MCP
@@ -32,8 +30,8 @@ progress:
 
 ## Current Position
 
-Phase: 11 (setup-documentation) — EXECUTING
-Plan: 2 of 2
+Phase: 11 (setup-documentation) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## v2.1 Phase Map
 
@@ -42,7 +40,7 @@ Plan: 2 of 2
 | 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | Complete (2026-03-19) |
 | 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Complete (2026-03-19) |
 | 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | Complete (2026-03-19) |
-| 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | In Progress (11-01 complete) |
+| 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | Complete (2026-03-19) |
 
 ---
 
@@ -110,6 +108,12 @@ Plan: 2 of 2
 - **Tooltip imported in TenantDetailPage now:** Establishes dependency and is immediately used on Setup tab labels; Plan 02 adds tooltips across all pages
 - **Tailwind group-hover tooltip pattern:** No external library needed; pure CSS via group/group-hover classes on wrapper span
 
+### Phase 11 Plan 2 Decisions
+
+- **Linux guide as companion doc:** Covers only Ubuntu/Debian platform-specific steps (NodeSource PPA, PGDG repo, systemd), then hands off to SETUP.md for platform-agnostic steps — avoids duplication drift
+- **Windows guide includes inline post-migration steps:** ALTER ROLE and GRANT commands reproduced inline in Step 7 PowerShell notes to match SETUP.md without requiring navigation
+- **SETUP.md test count updated 18->19:** Actual count verified during execution; 19 test files exist
+
 ### Phase 11 Plan 1 Decisions
 
 - **tsx in dependencies:** Production CMD requires tsx at runtime; moving it from devDependencies ensures `npm ci --omit=dev` includes it in the Docker image
@@ -127,9 +131,9 @@ Plan: 2 of 2
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T18:05:02.859Z
-**Stopped at:** Completed 11-01-PLAN.md (README + Docker deployment infrastructure)
-**Next action:** Execute Phase 11 Plan 2 — Linux/VPS and Windows Server deployment guides
+**Last session:** 2026-03-19T18:11:35Z
+**Stopped at:** Completed 11-02-PLAN.md (Linux/VPS and Windows Server deployment guides)
+**Next action:** Phase 11 complete — v2.1 milestone complete, all 8 plans delivered
 
 ---
 *State initialized: 2026-03-07*
