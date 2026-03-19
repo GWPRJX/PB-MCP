@@ -89,7 +89,7 @@ Plans:
   2. A Linux/VPS guide walks through Ubuntu/Debian environment setup (Node.js, PostgreSQL) through to a working deployment
   3. A Docker guide provides a Dockerfile and docker-compose configuration with annotated steps to run the full stack
   4. A Windows Server guide covers environment setup and deployment steps specific to Windows
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 11-01-PLAN.md — README + production Dockerfile + docker-compose.prod.yml + Docker deployment guide
@@ -102,7 +102,7 @@ Plans:
 | 8. KB/Docs Management | 2/2 | Complete | 2026-03-19 |
 | 9. Tenant Onboarding Flow | 2/2 | Complete   | 2026-03-19 |
 | 10. Dashboard UX Polish | 2/2 | Complete    | 2026-03-19 |
-| 11. Setup Documentation | 0/2 | Planned | - |
+| 11. Setup Documentation | 1/2 | In Progress|  |
 
 ### v2.1 Coverage
 

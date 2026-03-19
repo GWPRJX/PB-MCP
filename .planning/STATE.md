@@ -2,14 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — UI Polish + Setup Documentation
-status: unknown
-stopped_at: Completed 10-02-PLAN.md (Tooltips + Print-to-PDF)
-last_updated: "2026-03-19T17:10:26.927Z"
+status: in-progress
+stopped_at: Completed 11-01-PLAN.md (README + Docker deployment infrastructure)
+last_updated: "2026-03-19T18:05:02.864Z"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
+  percent: 88
+  bar: "[█████████░] 88%"
 ---
 
 # STATE: PB MCP
@@ -30,8 +32,8 @@ progress:
 
 ## Current Position
 
-Phase: 10 (dashboard-ux-polish) — COMPLETE
-Phase: 11 (setup-documentation) — NEXT
+Phase: 11 (setup-documentation) — EXECUTING
+Plan: 2 of 2
 
 ## v2.1 Phase Map
 
@@ -40,7 +42,7 @@ Phase: 11 (setup-documentation) — NEXT
 | 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | Complete (2026-03-19) |
 | 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Complete (2026-03-19) |
 | 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | Complete (2026-03-19) |
-| 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | Not started |
+| 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | In Progress (11-01 complete) |
 
 ---
 
@@ -108,6 +110,12 @@ Phase: 11 (setup-documentation) — NEXT
 - **Tooltip imported in TenantDetailPage now:** Establishes dependency and is immediately used on Setup tab labels; Plan 02 adds tooltips across all pages
 - **Tailwind group-hover tooltip pattern:** No external library needed; pure CSS via group/group-hover classes on wrapper span
 
+### Phase 11 Plan 1 Decisions
+
+- **tsx in dependencies:** Production CMD requires tsx at runtime; moving it from devDependencies ensures `npm ci --omit=dev` includes it in the Docker image
+- **migrate profile-gated:** `profiles: [migrate]` prevents accidental migration runs on every `docker compose up`; must be explicitly invoked
+- **Docker guide self-contained:** Covers every step including critical post-migration ALTER ROLE and GRANT commands without deferring to SETUP.md
+
 ### v2.1 Notes
 
 - KB-01 changes doc upload from per-tenant to server-level — check existing upload endpoint scope
@@ -119,9 +127,9 @@ Phase: 11 (setup-documentation) — NEXT
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T17:06:18.517Z
-**Stopped at:** Completed 10-02-PLAN.md (Tooltips + Print-to-PDF)
-**Next action:** Execute Phase 11 — Setup Documentation (README + deployment guides)
+**Last session:** 2026-03-19T18:05:02.859Z
+**Stopped at:** Completed 11-01-PLAN.md (README + Docker deployment infrastructure)
+**Next action:** Execute Phase 11 Plan 2 — Linux/VPS and Windows Server deployment guides
 
 ---
 *State initialized: 2026-03-07*

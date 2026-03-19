@@ -30,9 +30,9 @@ Requirements for v2.1 release. Each maps to roadmap phases.
 
 ### Documentation
 
-- [ ] **DOCS-01**: README overhauled with clear project overview and quickstart
+- [x] **DOCS-01**: README overhauled with clear project overview and quickstart
 - [ ] **DOCS-02**: Step-by-step setup guide for Linux/VPS (Ubuntu/Debian + Node.js + PostgreSQL)
-- [ ] **DOCS-03**: Step-by-step setup guide for Docker (Dockerfile + docker-compose)
+- [x] **DOCS-03**: Step-by-step setup guide for Docker (Dockerfile + docker-compose)
 - [ ] **DOCS-04**: Step-by-step setup guide for Windows Server
 
 ## Future Requirements
@@ -64,9 +64,9 @@ None — v2.1 is a polish/documentation milestone.
 | UX-02 | Phase 10 | Complete |
 | UX-03 | Phase 10 | Complete |
 | UX-04 | Phase 10 | Complete |
-| DOCS-01 | Phase 11 | Pending |
+| DOCS-01 | Phase 11 | Complete |
 | DOCS-02 | Phase 11 | Pending |
-| DOCS-03 | Phase 11 | Pending |
+| DOCS-03 | Phase 11 | Complete |
 | DOCS-04 | Phase 11 | Pending |
 
 **Coverage:**
