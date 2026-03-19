@@ -57,7 +57,7 @@ Plans:
   1. The tenant creation form prompts for ERP credentials (host, username, password, company) before any other step
   2. After entering ERP credentials, admin sees a "Test Connection" step and receives a clear pass or fail result before continuing
   3. The API key generation step only becomes available after a successful ERP connection test — the flow cannot skip this gate
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 09-01-PLAN.md — Backend: test-erp-credentials endpoint (no tenant required) + tenant creation accepts ERP config
@@ -90,7 +90,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 8. KB/Docs Management | 2/2 | Complete | 2026-03-19 |
-| 9. Tenant Onboarding Flow | 0/2 | Planned | - |
+| 9. Tenant Onboarding Flow | 1/2 | In Progress|  |
 | 10. Dashboard UX Polish | 0/? | Not started | - |
 | 11. Setup Documentation | 0/? | Not started | - |
 

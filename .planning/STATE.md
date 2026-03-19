@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Core MCP Server
 status: unknown
-stopped_at: Phase 9 context gathered
-last_updated: "2026-03-19T14:03:55.222Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-19T14:36:04.737Z"
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 25
-  completed_plans: 25
+  total_plans: 27
+  completed_plans: 26
 ---
 
 # STATE: PB MCP
@@ -30,8 +30,8 @@ progress:
 
 ## Current Position
 
-Phase: 08 (kb-docs-management) — COMPLETE
-Plan: 2 of 2 (verification approved)
+Phase: 09 (tenant-onboarding) — EXECUTING
+Plan: 2 of 2
 
 ## v2.1 Phase Map
 
@@ -71,6 +71,11 @@ Plan: 2 of 2 (verification approved)
 5. **Idempotency on financial writes** — write tools should handle duplicate submissions gracefully
 6. **JWT secret management** — JWT signing secret must be in env var, not hardcoded
 
+### Phase 9 Plan 1 Decisions
+
+- **testErpCredentials dynamic import:** Uses dynamic import in router consistent with existing testErpConnection pattern — avoids circular dependency risk
+- **erpConfig conditional construction:** Only passed to createTenant() when at least one ERP field is present — clean API for non-ERP tenant creation flow
+
 ### Phase 8 Plan 2 Decisions
 
 - **KnowledgeBasePage sub-components:** Internal-only section functions (YouTrackConfigSection, SyncStatusSection, UploadedDocsSection) keep file self-contained without over-engineering
@@ -94,9 +99,9 @@ Plan: 2 of 2 (verification approved)
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T14:03:55.218Z
-**Stopped at:** Phase 9 context gathered
-**Next action:** Begin Phase 9 (Tenant Onboarding Flow)
+**Last session:** 2026-03-19T14:36:04.735Z
+**Stopped at:** Completed 09-01-PLAN.md
+**Next action:** Execute Phase 9 Plan 2 (Tenant Onboarding Wizard UI)
 
 ---
 *State initialized: 2026-03-07*
