@@ -78,6 +78,12 @@ export interface Tenant {
 export interface TenantDetail extends Tenant {
   updatedAt: string;
   apiKeys: ApiKey[];
+  erpBaseUrl?: string | null;
+  erpClientId?: string | null;
+  erpAppSecret?: string | null;
+  erpUsername?: string | null;
+  erpPassword?: string | null;
+  erpTerminal?: string | null;
 }
 
 export interface ApiKey {
@@ -117,6 +123,21 @@ export interface KbDoc {
 
 export interface KbDocFull extends KbDoc {
   content: string;
+}
+
+// KB Settings types
+export interface KbSettings {
+  youtrackBaseUrl: string | null;
+  youtrackToken: string | null;
+  youtrackProject: string | null;
+  syncIntervalMs: number;
+}
+
+export interface SyncStatus {
+  lastSyncAt: string | null;
+  lastSyncArticleCount: number | null;
+  lastSyncError: string | null;
+  totalArticleCount: number;
 }
 
 // API functions
@@ -200,3 +221,16 @@ export const updateDoc = (id: string, data: { title?: string; content?: string; 
 
 export const deleteDoc = (id: string) =>
   api<void>(`/kb/docs/${id}`, { method: 'DELETE' });
+
+// KB Settings & Sync
+export const getKbSettings = () =>
+  api<KbSettings>('/kb/settings');
+
+export const updateKbSettings = (settings: Partial<KbSettings>) =>
+  api<{ updated: boolean }>('/kb/settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+
+export const getKbSyncStatus = () =>
+  api<SyncStatus>('/kb/sync-status');

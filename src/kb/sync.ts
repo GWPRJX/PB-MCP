@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import postgres from 'postgres';
 import { sql } from '../db/client.js';
+import { getSettings } from '../admin/settings-service.js';
 
 export interface SyncResult {
   article_count: number;
@@ -24,12 +25,13 @@ interface YouTrackArticle {
  * KB-07: single transaction ensures partial failures leave existing cache intact
  */
 export async function syncKbArticles(): Promise<SyncResult> {
-  const baseUrl = process.env.YOUTRACK_BASE_URL;
-  const token = process.env.YOUTRACK_TOKEN;
-  const project = process.env.YOUTRACK_PROJECT ?? 'P8';
+  const dbSettings = await getSettings();
+  const baseUrl = dbSettings.youtrackBaseUrl || process.env.YOUTRACK_BASE_URL;
+  const token = dbSettings.youtrackToken || process.env.YOUTRACK_TOKEN;
+  const project = dbSettings.youtrackProject || (process.env.YOUTRACK_PROJECT ?? 'P8');
 
   if (!baseUrl || !token) {
-    process.stderr.write('[kb/sync] WARNING: YOUTRACK_BASE_URL or YOUTRACK_TOKEN not set — skipping sync\n');
+    process.stderr.write('[kb/sync] WARNING: YouTrack credentials not configured (neither DB nor env vars) -- skipping sync\n');
     return { article_count: 0, synced_at: new Date() };
   }
 

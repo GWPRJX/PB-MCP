@@ -9,6 +9,7 @@ import {
   updateTenantErpConfig,
 } from './tenant-service.js';
 import { syncKbArticles } from '../kb/sync.js';
+import { getSettings, updateSettings, getSyncStatus, updateSyncStatus } from './settings-service.js';
 import {
   getToolPermissions,
   updateToolPermissions,
@@ -122,6 +123,12 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
             status: { type: 'string' },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
+            erpBaseUrl: { type: 'string', nullable: true },
+            erpClientId: { type: 'string', nullable: true },
+            erpAppSecret: { type: 'string', nullable: true },
+            erpUsername: { type: 'string', nullable: true },
+            erpPassword: { type: 'string', nullable: true },
+            erpTerminal: { type: 'string', nullable: true },
             apiKeys: {
               type: 'array',
               items: {
@@ -222,6 +229,100 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
   });
 
   // ──────────────────────────────────────────────────────────────
+  // GET /admin/kb/settings — get YouTrack configuration settings
+  // ──────────────────────────────────────────────────────────────
+  server.get('/kb/settings', {
+    schema: {
+      summary: 'Get YouTrack KB configuration settings',
+      security: [{ adminSecret: [] }],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            youtrackBaseUrl: { type: ['string', 'null'] },
+            youtrackToken: { type: ['string', 'null'] },
+            youtrackProject: { type: ['string', 'null'] },
+            syncIntervalMs: { type: 'number' },
+          },
+        },
+      },
+    },
+  }, async (_request, reply) => {
+    const settings = await getSettings();
+    // Mask token for display: show first 4 and last 4 chars
+    let maskedToken: string | null = null;
+    if (settings.youtrackToken) {
+      const t = settings.youtrackToken;
+      maskedToken = t.length > 8 ? `${t.slice(0, 4)}${'*'.repeat(t.length - 8)}${t.slice(-4)}` : '****';
+    }
+    return reply.status(200).send({
+      ...settings,
+      youtrackToken: maskedToken,
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // PUT /admin/kb/settings — update YouTrack configuration settings
+  // ──────────────────────────────────────────────────────────────
+  server.put<{
+    Body: {
+      youtrackBaseUrl?: string;
+      youtrackToken?: string;
+      youtrackProject?: string;
+      syncIntervalMs?: number;
+    };
+  }>('/kb/settings', {
+    schema: {
+      summary: 'Update YouTrack KB configuration settings',
+      security: [{ adminSecret: [] }],
+      body: {
+        type: 'object',
+        properties: {
+          youtrackBaseUrl: { type: 'string' },
+          youtrackToken: { type: 'string' },
+          youtrackProject: { type: 'string' },
+          syncIntervalMs: { type: 'number', minimum: 60000 },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { updated: { type: 'boolean' } } },
+        400: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const { youtrackBaseUrl, youtrackToken, youtrackProject, syncIntervalMs } = request.body;
+    if (syncIntervalMs !== undefined && syncIntervalMs < 60000) {
+      return reply.status(400).send({ error: 'Sync interval must be at least 60000ms (1 minute)' });
+    }
+    await updateSettings({ youtrackBaseUrl, youtrackToken, youtrackProject, syncIntervalMs });
+    return reply.status(200).send({ updated: true });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // GET /admin/kb/sync-status — get KB sync status
+  // ──────────────────────────────────────────────────────────────
+  server.get('/kb/sync-status', {
+    schema: {
+      summary: 'Get KB sync status (last sync time, article count, errors)',
+      security: [{ adminSecret: [] }],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            lastSyncAt: { type: ['string', 'null'] },
+            lastSyncArticleCount: { type: ['number', 'null'] },
+            lastSyncError: { type: ['string', 'null'] },
+            totalArticleCount: { type: 'number' },
+          },
+        },
+      },
+    },
+  }, async (_request, reply) => {
+    const status = await getSyncStatus();
+    return reply.status(200).send(status);
+  });
+
+  // ──────────────────────────────────────────────────────────────
   // POST /admin/kb/refresh — trigger immediate KB re-sync
   // ──────────────────────────────────────────────────────────────
   server.post('/kb/refresh', {
@@ -236,11 +337,32 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
             article_count: { type: 'number' },
           },
         },
+        500: {
+          type: 'object',
+          properties: {
+            synced: { type: 'boolean' },
+            error: { type: 'string' },
+          },
+        },
       },
     },
   }, async (_request, reply) => {
-    const result = await syncKbArticles();
-    return reply.status(200).send({ synced: true, article_count: result.article_count });
+    try {
+      const result = await syncKbArticles();
+      await updateSyncStatus({
+        syncedAt: result.synced_at.toISOString(),
+        articleCount: result.article_count,
+      });
+      return reply.status(200).send({ synced: true, article_count: result.article_count });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      await updateSyncStatus({
+        syncedAt: new Date().toISOString(),
+        articleCount: 0,
+        error: errorMsg,
+      }).catch(() => {}); // Don't fail the request if status update fails
+      return reply.status(500).send({ synced: false, error: errorMsg });
+    }
   });
 
   // ──────────────────────────────────────────────────────────────
