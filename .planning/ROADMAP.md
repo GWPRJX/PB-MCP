@@ -89,7 +89,11 @@ Plans:
   2. A Linux/VPS guide walks through Ubuntu/Debian environment setup (Node.js, PostgreSQL) through to a working deployment
   3. A Docker guide provides a Dockerfile and docker-compose configuration with annotated steps to run the full stack
   4. A Windows Server guide covers environment setup and deployment steps specific to Windows
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — README + production Dockerfile + docker-compose.prod.yml + Docker deployment guide
+- [ ] 11-02-PLAN.md — Linux/VPS deployment guide + Windows Server deployment guide + SETUP.md version fix
 
 ### v2.1 Progress
 
@@ -98,7 +102,7 @@ Plans:
 | 8. KB/Docs Management | 2/2 | Complete | 2026-03-19 |
 | 9. Tenant Onboarding Flow | 2/2 | Complete   | 2026-03-19 |
 | 10. Dashboard UX Polish | 2/2 | Complete    | 2026-03-19 |
-| 11. Setup Documentation | 0/? | Not started | - |
+| 11. Setup Documentation | 0/2 | Planned | - |
 
 ### v2.1 Coverage
 
@@ -131,7 +135,7 @@ Plans:
 |-----------|--------|-------|-------------|--------|
 | v1.0 Core MCP Server | 4 | 16 | 39/40 | Complete 2026-03-17 |
 | v2.0 Admin Dashboard + Write Ops | 3 | 7 | 26/26 | Complete 2026-03-18 |
-| v2.1 UI Polish + Setup Docs | 4 | 6+ | 8/16 | In Progress |
+| v2.1 UI Polish + Setup Docs | 4 | 8 | 12/16 | In Progress |
 
 **Total shipped:** 9 phases, 27 plans, 73/74 requirements (KB-08 deferred)
 
