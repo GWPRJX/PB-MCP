@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: — UI Polish + Setup Documentation
-status: unknown
-stopped_at: Completed 11-02-PLAN.md (Linux/VPS and Windows Server deployment guides)
-last_updated: "2026-03-19T18:16:44.614Z"
+status: milestone_complete
+stopped_at: v2.1 milestone archived
+last_updated: "2026-03-19T19:44:34.595Z"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -30,8 +30,7 @@ progress:
 
 ## Current Position
 
-Phase: 11 (setup-documentation) — COMPLETE
-Plan: 2 of 2 (all complete)
+Milestone v2.1 complete. All 4 phases (8-11), 8 plans shipped. Ready for next milestone.
 
 ## v2.1 Phase Map
 
