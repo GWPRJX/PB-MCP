@@ -6,7 +6,7 @@ A technical reference for the Multi-Tenant ERP MCP Server. Covers architecture, 
 
 ## What It Does
 
-PB MCP is an HTTP server that exposes a company's ERP data (inventory, orders, invoices, contacts) and YouTrack knowledge base articles as MCP (Model Context Protocol) tools. An AI assistant like Claude connects to this server and can then answer questions like "what products are low on stock?" or "show me overdue invoices for this month" — the server handles authentication, tenant isolation, and database queries.
+PB MCP is an HTTP server that exposes a company's ERP data (inventory, orders, invoices, contacts) and YouTrack knowledge base articles as 27 MCP (Model Context Protocol) tools (21 read + 6 write). An AI assistant like Claude connects to this server and can then answer questions like "what products are low on stock?" or "show me overdue invoices for this month", and perform write operations like creating invoices or transferring stock — the server handles authentication, tenant isolation, and database queries.
 
 Multiple companies ("tenants") share a single running server and a single PostgreSQL database. Their data is kept separate by PostgreSQL Row-Level Security.
 
@@ -44,7 +44,8 @@ pb mcp/
 │   │   ├── auth-middleware.ts # JWT signing/verification (HS256) + jwtAuthHook (JWT or X-Admin-Secret)
 │   │   ├── tool-permissions-service.ts # Tenant + per-key tool access control
 │   │   ├── audit-service.ts  # recordToolCall (fire-and-forget) + queryAuditLog
-│   │   └── connection-tester.ts # POSibolt ERP connection test
+│   │   ├── settings-service.ts # Key-value store for dashboard-configurable settings (KB sync, etc.)
+│   │   └── connection-tester.ts # POSibolt ERP connection test (standalone + per-tenant)
 │   ├── db/
 │   │   ├── client.ts         # Two postgres.js pools + withTenantContext helper
 │   │   ├── schema.ts         # Drizzle table definitions (TypeScript types for all tables)
@@ -68,12 +69,14 @@ pb mcp/
 │       ├── App.tsx           # Root component — JWT auth check, routing
 │       ├── api.ts            # API client — JWT token management, all admin API functions
 │       ├── components/
-│       │   └── Layout.tsx    # Navigation shell with logout
+│       │   ├── Layout.tsx    # Navigation shell with logout
+│       │   └── Tooltip.tsx   # Reusable info-icon tooltip (Tailwind group-hover, no external lib)
 │       └── pages/
-│           ├── LoginPage.tsx       # Username + password → JWT login
-│           ├── TenantsPage.tsx     # Tenant list
-│           ├── CreateTenantPage.tsx # New tenant form
-│           └── TenantDetailPage.tsx # 5-tab detail: Keys, Tools, ERP, Audit, API Docs
+│           ├── LoginPage.tsx        # Username + password → JWT login
+│           ├── TenantsPage.tsx      # Tenant list with tooltips
+│           ├── CreateTenantPage.tsx  # 3-step tenant creation wizard (info → ERP credentials test → API key)
+│           ├── TenantDetailPage.tsx  # 5-tab detail: Keys, Tools, ERP, Setup, Audit Log
+│           └── KnowledgeBasePage.tsx # Server-level KB management: YT config, sync, doc upload
 ├── db/
 │   └── migrations/           # SQL migration files (golang-migrate format)
 │       ├── 000001_create_roles.up.sql
@@ -84,7 +87,8 @@ pb mcp/
 │       ├── 000006_add_erp_config.up.sql
 │       ├── 000007_create_tool_permissions.up.sql
 │       ├── 000008_create_audit_log.up.sql
-│       └── 000009_add_api_key_expiry.up.sql
+│       ├── 000009_add_api_key_expiry.up.sql
+│       └── 000010_create_server_settings.up.sql
 ├── scripts/
 │   └── assert-rls.sh         # CI gate: fails if any tenant table lacks an RLS policy
 └── .github/workflows/ci.yml  # GitHub Actions: run migrations + RLS check + test suite
@@ -331,7 +335,18 @@ All three are guarded by the same `extractAndValidateApiKey` middleware.
 | `get_kb_article` | Full Markdown content by YouTrack article ID (e.g. "P8-A-7") |
 | `get_kb_sync_status` | Last sync timestamp + total cached article count |
 
-All ERP tools enforce tenant isolation via `withTenantContext`. KB tools query `kb_articles` directly — no tenant context needed (global cache).
+### Write Operations (6 tools)
+
+| Tool | What it does |
+|------|-------------|
+| `transfer_stock` | Move stock between locations for a product |
+| `create_invoice` | Create a new invoice linked to an order |
+| `cancel_invoice` | Cancel an existing invoice |
+| `create_contact` | Add a new CRM contact |
+| `update_contact` | Update an existing contact's details |
+| `delete_contact` | Remove a CRM contact |
+
+All ERP tools (read + write) enforce tenant isolation via `withTenantContext`. KB tools query `kb_articles` directly — no tenant context needed (global cache). Write tools call the POSibolt POST API via `pbPost()` and record audit log entries.
 
 ### Tool response shape
 
@@ -404,6 +419,15 @@ All routes under `/admin` require authentication — either `Authorization: Bear
 |--------|------|--------|
 | `PUT` | `/admin/tenants/:id/erp-config` | Update POSibolt connection details |
 | `POST` | `/admin/tenants/:id/test-connection` | Test POSibolt ERP connection |
+| `POST` | `/admin/test-erp-credentials` | Test ERP credentials without a tenant (used by onboarding wizard) |
+
+### KB Settings
+
+| Method | Path | Action |
+|--------|------|--------|
+| `GET` | `/admin/kb/settings` | Get YouTrack connection settings (base URL, project, sync interval) |
+| `PUT` | `/admin/kb/settings` | Update YouTrack connection settings |
+| `GET` | `/admin/kb/sync-status` | Get last sync timestamp, article count, success/failure |
 
 ### Audit Log
 
@@ -439,10 +463,10 @@ Fastify's built-in logger is disabled (`logger: false`). All log lines use `proc
 1. Start `postgres:17-alpine` service container
 2. `npm ci`
 3. Install `golang-migrate` binary
-4. Run all 9 migrations against the test database
+4. Run all 10 migrations against the test database
 5. Create `app_user` / `app_login` roles and grant permissions
 6. **Run `assert-rls.sh`** — fails the build if any tenant-bearing table (including `tool_permissions` and `audit_log`) lacks an RLS policy
-7. `npm test` — runs the full vitest suite (18 test files covering DB, admin, MCP, tools, KB, and smoke tests)
+7. `npm test` — runs the full vitest suite (19 test files covering DB, admin, MCP, tools, KB, and smoke tests)
 
 Environment variables set for CI: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `ADMIN_SECRET`, `JWT_SECRET`.
 
@@ -452,7 +476,7 @@ Environment variables set for CI: `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `ADM
 
 Admins can restrict which MCP tools a tenant or specific API key has access to. The system has two layers:
 
-**Tenant-level permissions** (`tool_permissions` table): Controls which of the 21 tools are available to a tenant. All tools default to enabled. An admin disables specific tools via `PUT /admin/tenants/:id/tools`.
+**Tenant-level permissions** (`tool_permissions` table): Controls which of the 27 tools are available to a tenant. All tools default to enabled. An admin disables specific tools via `PUT /admin/tenants/:id/tools`.
 
 **Per-key restrictions** (`api_keys.allowed_tools` column): Further restricts a specific API key to a subset of tools. NULL means "inherit tenant defaults". When set, the MCP session only sees the **intersection** of tenant-enabled tools and key-allowed tools.
 
@@ -488,8 +512,11 @@ A React single-page application served at `/dashboard/` provides a GUI for all a
   - **API Keys** — create with optional expiry, revoke, per-key tool scoping (expandable rows)
   - **Tool Permissions** — toggle on/off per tool, bulk enable/disable, save
   - **ERP Config** — 6 POSibolt fields, save + test connection
+  - **Setup** — MCP client config snippets (Claude Desktop, Cursor, Generic) with copy buttons, Export PDF
   - **Audit Log** — paginated list with tool name and status filter dropdowns
-  - **API Docs** — upload/edit/delete markdown docs, paginated list
+- **Knowledge Base** — YouTrack connection config, manual sync trigger, uploaded doc management (CRUD)
+
+Every technical term across all pages has an info-icon tooltip explaining it in plain language. Admins can export tenant setup instructions as a PDF via browser print-to-PDF (`window.print()`).
 
 **Serving**: In production, `@fastify/static` serves `dashboard/dist/` with SPA fallback. In development, use `npm run dashboard:dev` (Vite dev server on port 5173 with proxy to backend).
 
