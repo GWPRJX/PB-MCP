@@ -26,7 +26,7 @@
 
 ### Phases
 
-- [ ] **Phase 8: KB/Docs Management** - YouTrack config from dashboard, manual sync, server-level doc upload
+- [x] **Phase 8: KB/Docs Management** - YouTrack config from dashboard, manual sync, server-level doc upload
 - [ ] **Phase 9: Tenant Onboarding Flow** - Credentials-first, connection-tested tenant creation flow
 - [ ] **Phase 10: Dashboard UX Polish** - MCP client setup instructions, PDF export, and tooltips for all technical terms
 - [ ] **Phase 11: Setup Documentation** - README overhaul and step-by-step deployment guides for Linux, Docker, and Windows
@@ -43,7 +43,7 @@
   3. Dashboard displays last sync timestamp, article count, and success/failure status
   4. Admin can manually upload API docs at server level to fill gaps not covered by YouTrack
   5. Uploaded docs are searchable via MCP KB tools alongside YouTrack-synced articles
-**Plans:** 2/2 plans executed (verification pending)
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 08-01-PLAN.md — Backend: server_settings table, settings service, admin endpoints, sync/scheduler DB integration
@@ -85,7 +85,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. KB/Docs Management | 2/2 | Verification pending |  |
+| 8. KB/Docs Management | 2/2 | Complete | 2026-03-19 |
 | 9. Tenant Onboarding Flow | 0/? | Not started | - |
 | 10. Dashboard UX Polish | 0/? | Not started | - |
 | 11. Setup Documentation | 0/? | Not started | - |

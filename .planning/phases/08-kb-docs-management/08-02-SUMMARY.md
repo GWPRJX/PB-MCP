@@ -69,7 +69,7 @@ Each task was committed atomically:
 1. **Task 1: Create KnowledgeBasePage with YT config, sync, and docs sections** - `24ac06a` (feat)
 2. **Task 2: Remove DocsTab from TenantDetailPage** - `82c435c` (feat)
 
-**Plan metadata:** TBD after checkpoint approval
+**Plan metadata:** `fa12e03` (docs: complete KB dashboard plan)
 
 ## Files Created/Modified
 - `dashboard/src/pages/KnowledgeBasePage.tsx` - New KB management page with three sections
