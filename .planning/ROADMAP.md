@@ -97,7 +97,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 8. KB/Docs Management | 2/2 | Complete | 2026-03-19 |
 | 9. Tenant Onboarding Flow | 2/2 | Complete   | 2026-03-19 |
-| 10. Dashboard UX Polish | 2/2 | Complete   | 2026-03-19 |
+| 10. Dashboard UX Polish | 2/2 | Complete    | 2026-03-19 |
 | 11. Setup Documentation | 0/? | Not started | - |
 
 ### v2.1 Coverage

@@ -4,7 +4,7 @@ milestone: v2.1
 milestone_name: — UI Polish + Setup Documentation
 status: unknown
 stopped_at: Completed 10-02-PLAN.md (Tooltips + Print-to-PDF)
-last_updated: "2026-03-19T17:06:18.524Z"
+last_updated: "2026-03-19T17:10:26.927Z"
 progress:
   total_phases: 4
   completed_phases: 3
