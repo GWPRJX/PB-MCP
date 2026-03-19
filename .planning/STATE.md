@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: UI Polish + Setup Documentation
-current_phase: 0
+current_phase: 8
 current_plan: 0
-status: defining_requirements
-stopped_at: Requirements defined, awaiting roadmap
-last_updated: "2026-03-19T09:30:00Z"
+status: roadmap_complete
+stopped_at: Roadmap created, ready to plan Phase 8
+last_updated: "2026-03-19T10:00:00Z"
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -26,22 +26,35 @@ progress:
 
 **v1 Total Phases:** 4 (all complete)
 **v2 Total Phases:** 3 (all complete)
+**v2.1 Total Phases:** 4 (phases 8–11)
 
 ---
 
 ## Current Position
 
 **Milestone:** v2.1 — UI Polish + Setup Documentation
-**Status:** Defining requirements, creating roadmap
+**Current Phase:** Phase 8 — KB/Docs Management
+**Status:** Roadmap complete, ready to plan Phase 8
 
 **Progress:**
 ```
 v1.0 [##########] 100% COMPLETE (4/4 phases, 16/16 plans)
 v2.0 [##########] 100% COMPLETE (3/3 phases, 7/7 plans) — ARCHIVED
-v2.1 [░░░░░░░░░░]   0% STARTING
+v2.1 [░░░░░░░░░░]   0% IN PROGRESS (0/4 phases, 0/? plans)
 ```
 
 **Overall:** 7 phases, 23 plans, 65/66 requirements shipped across 2 milestones.
+
+---
+
+## v2.1 Phase Map
+
+| Phase | Goal | Requirements | Status |
+|-------|------|--------------|--------|
+| 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | Not started |
+| 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Not started |
+| 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | Not started |
+| 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | Not started |
 
 ---
 
@@ -72,13 +85,20 @@ v2.1 [░░░░░░░░░░]   0% STARTING
 5. **Idempotency on financial writes** — write tools should handle duplicate submissions gracefully
 6. **JWT secret management** — JWT signing secret must be in env var, not hardcoded
 
+### v2.1 Notes
+
+- KB-01 changes doc upload from per-tenant to server-level — check existing upload endpoint scope
+- ONBOARD flow changes tenant creation — existing `POST /admin/tenants` flow needs redesign
+- UX-03 (PDF export) requires a PDF generation library — no current dependency for this
+- DOCS-01–04 are pure markdown/text work, no code changes
+
 ---
 
 ## Session Continuity
 
 **Last session:** 2026-03-19
-**Stopped at:** Requirements defined, creating roadmap
-**Next action:** Create roadmap for v2.1
+**Stopped at:** Roadmap created for v2.1 (phases 8–11, 14/14 requirements mapped)
+**Next action:** Plan Phase 8 via `/gsd:plan-phase 8`
 
 ---
 *State initialized: 2026-03-07*
@@ -86,3 +106,4 @@ v2.1 [░░░░░░░░░░]   0% STARTING
 *v2.0 completed: 2026-03-18*
 *v2.0 archived: 2026-03-18*
 *v2.1 started: 2026-03-19*
+*v2.1 roadmap created: 2026-03-19*

@@ -9,9 +9,11 @@ Requirements for v2.1 release. Each maps to roadmap phases.
 
 ### KB/Docs Management
 
-- [ ] **KB-01**: Admin can upload API docs at server level (not per-tenant)
+- [ ] **KB-01**: Admin can configure YouTrack connection settings (API key, base URL, project) from the dashboard
 - [ ] **KB-02**: Admin can trigger manual YouTrack sync from dashboard via sync button
-- [ ] **KB-03**: Dashboard shows last sync timestamp and status
+- [ ] **KB-03**: Dashboard shows last sync timestamp, article count, and success/failure status
+- [ ] **KB-04**: Admin can manually upload API docs at server level to fill gaps not covered by YouTrack sync
+- [ ] **KB-05**: Uploaded docs are searchable via MCP KB tools alongside YouTrack-synced articles
 
 ### Tenant Onboarding
 
@@ -50,26 +52,28 @@ None — v2.1 is a polish/documentation milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| KB-01 | TBD | Pending |
-| KB-02 | TBD | Pending |
-| KB-03 | TBD | Pending |
-| ONBOARD-01 | TBD | Pending |
-| ONBOARD-02 | TBD | Pending |
-| ONBOARD-03 | TBD | Pending |
-| UX-01 | TBD | Pending |
-| UX-02 | TBD | Pending |
-| UX-03 | TBD | Pending |
-| UX-04 | TBD | Pending |
-| DOCS-01 | TBD | Pending |
-| DOCS-02 | TBD | Pending |
-| DOCS-03 | TBD | Pending |
-| DOCS-04 | TBD | Pending |
+| KB-01 | Phase 8 | Pending |
+| KB-02 | Phase 8 | Pending |
+| KB-03 | Phase 8 | Pending |
+| KB-04 | Phase 8 | Pending |
+| KB-05 | Phase 8 | Pending |
+| ONBOARD-01 | Phase 9 | Pending |
+| ONBOARD-02 | Phase 9 | Pending |
+| ONBOARD-03 | Phase 9 | Pending |
+| UX-01 | Phase 10 | Pending |
+| UX-02 | Phase 10 | Pending |
+| UX-03 | Phase 10 | Pending |
+| UX-04 | Phase 10 | Pending |
+| DOCS-01 | Phase 11 | Pending |
+| DOCS-02 | Phase 11 | Pending |
+| DOCS-03 | Phase 11 | Pending |
+| DOCS-04 | Phase 11 | Pending |
 
 **Coverage:**
-- v2.1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14
+- v2.1 requirements: 16 total
+- Mapped to phases: 16
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-19 after initial definition*
+*Last updated: 2026-03-19 after Phase 8 scope revision — 16 requirements mapped*
