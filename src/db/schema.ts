@@ -181,3 +181,14 @@ export const kbArticles = pgTable('kb_articles', {
   syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
   contentHash: text('content_hash'),                   // SHA-256 of content (nullable)
 });
+
+// ---------------------------------------------------------------------------
+// Server settings (Phase 8) — GLOBAL key-value store, no tenant_id, no RLS
+// Stores server-wide config: YouTrack credentials, sync interval, etc.
+// ---------------------------------------------------------------------------
+
+export const serverSettings = pgTable('server_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
