@@ -160,9 +160,19 @@ export async function listTenants(): Promise<TenantListItem[]> {
 export async function getTenant(
   id: string
 ): Promise<(TenantRow & { apiKeys: ApiKeyRow[] }) | null> {
-  const tenantRows = await sql<TenantRow[]>`
+  const tenantRows = await sql<(TenantRow & {
+    erpBaseUrl: string | null;
+    erpClientId: string | null;
+    erpAppSecret: string | null;
+    erpUsername: string | null;
+    erpPassword: string | null;
+    erpTerminal: string | null;
+  })[]>`
     SELECT id, name, slug, plan, status,
-           created_at AS "createdAt", updated_at AS "updatedAt"
+           created_at AS "createdAt", updated_at AS "updatedAt",
+           erp_base_url AS "erpBaseUrl", erp_client_id AS "erpClientId",
+           erp_app_secret AS "erpAppSecret", erp_username AS "erpUsername",
+           erp_password AS "erpPassword", erp_terminal AS "erpTerminal"
     FROM tenants
     WHERE id = ${id}
   `;
