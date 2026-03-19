@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { TenantsPage } from './pages/TenantsPage';
 import { TenantDetailPage } from './pages/TenantDetailPage';
 import { CreateTenantPage } from './pages/CreateTenantPage';
+import { KnowledgeBasePage } from './pages/KnowledgeBasePage';
 
 function App() {
   const [authenticated, setAuthenticated] = useState(!!getToken());
@@ -36,6 +37,7 @@ function App() {
           <Route path="/tenants" element={<TenantsPage />} />
           <Route path="/tenants/new" element={<CreateTenantPage />} />
           <Route path="/tenants/:id" element={<TenantDetailPage />} />
+          <Route path="/kb" element={<KnowledgeBasePage />} />
         </Routes>
       </Layout>
     </BrowserRouter>

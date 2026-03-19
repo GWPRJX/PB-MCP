@@ -18,6 +18,12 @@ export function Layout({ children, onLogout }: { children: ReactNode; onLogout: 
           >
             Tenants
           </Link>
+          <Link
+            to="/kb"
+            className={`text-sm ${location.pathname.startsWith('/kb') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Knowledge Base
+          </Link>
         </div>
         <button
           onClick={() => { clearToken(); onLogout(); }}
