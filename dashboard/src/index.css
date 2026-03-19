@@ -1,1 +1,74 @@
 @import "tailwindcss";
+
+/* Print styles for PDF export */
+@media print {
+  /* Hide navigation, sidebar, and non-print elements */
+  nav,
+  .no-print,
+  button,
+  select,
+  input {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Reset layout for print */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt !important;
+  }
+
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Ensure code blocks don't overflow */
+  pre, code {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    font-size: 10pt !important;
+  }
+
+  /* Config snippet blocks in print */
+  .print-snippet {
+    border: 1px solid #d1d5db !important;
+    border-radius: 0.375rem !important;
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+    page-break-inside: avoid !important;
+    background: #f9fafb !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-snippet-title {
+    font-weight: 600 !important;
+    margin-bottom: 0.5rem !important;
+    font-size: 11pt !important;
+  }
+
+  /* Page break control */
+  .print-page-break {
+    page-break-before: always !important;
+  }
+
+  /* Hide tooltips in print */
+  .group > span[class*="invisible"] {
+    display: none !important;
+  }
+
+  /* Ensure badges print with color */
+  span[class*="bg-green"],
+  span[class*="bg-red"],
+  span[class*="bg-gray"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

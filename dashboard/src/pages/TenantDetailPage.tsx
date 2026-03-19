@@ -51,14 +51,15 @@ export function TenantDetailPage() {
   ];
 
   const handleExportPdf = (_tenant: TenantDetail) => {
-    // Implemented in Plan 02 — triggers print-to-PDF flow
     setTab('setup');
+    // Small delay to ensure Setup tab renders before printing
+    setTimeout(() => window.print(), 100);
   };
 
   return (
     <div>
       <div className="mb-6">
-        <Link to="/tenants" className="text-sm text-gray-500 hover:text-gray-700 mb-2 inline-block">
+        <Link to="/tenants" className="text-sm text-gray-500 hover:text-gray-700 mb-2 inline-block no-print">
           &larr; All tenants
         </Link>
         <div className="flex items-center gap-3">
@@ -84,7 +85,7 @@ export function TenantDetailPage() {
         </p>
       </div>
 
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 mb-6 no-print">
         <div className="flex gap-6">
           {tabs.map((t) => (
             <button
@@ -282,7 +283,7 @@ Replace YOUR_API_KEY with the API key generated for this tenant.`;
       </div>
 
       {/* Export PDF button */}
-      <div className="pt-4 border-t border-gray-200">
+      <div className="pt-4 border-t border-gray-200 no-print">
         <button
           onClick={() => window.print()}
           className="border border-gray-300 text-gray-700 text-sm font-medium py-2 px-4 rounded-md hover:bg-gray-50"
@@ -292,6 +293,54 @@ Replace YOUR_API_KEY with the API key generated for this tenant.`;
         <p className="text-xs text-gray-400 mt-2">
           Opens your browser&apos;s print dialog. Choose &quot;Save as PDF&quot; to download.
         </p>
+      </div>
+
+      {/* Print-only content — hidden on screen, shown when printing */}
+      <div className="hidden print-only">
+        <h1 style={{ fontSize: '18pt', marginBottom: '0.5rem' }}>{tenant.name} — MCP Setup Guide</h1>
+        <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
+          Tenant: {tenant.slug} | Generated: {new Date().toLocaleDateString()}
+        </p>
+
+        <h2 style={{ fontSize: '14pt', marginBottom: '0.5rem' }}>MCP Server URL</h2>
+        <div className="print-snippet">
+          <code>{serverUrl}</code>
+        </div>
+
+        <h2 style={{ fontSize: '14pt', marginBottom: '0.5rem' }}>API Key</h2>
+        <p style={{ marginBottom: '1rem', fontSize: '10pt', color: '#6b7280' }}>
+          Use the API key that was shown when you created it. Replace YOUR_API_KEY in the snippets below.
+        </p>
+
+        <h2 style={{ fontSize: '14pt', marginBottom: '0.5rem' }}>Configuration — Claude Desktop</h2>
+        <div className="print-snippet">
+          <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '10pt' }}>{getClaudeDesktopConfig()}</pre>
+        </div>
+
+        <h2 style={{ fontSize: '14pt', marginBottom: '0.5rem' }}>Configuration — Cursor</h2>
+        <div className="print-snippet">
+          <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '10pt' }}>{getCursorConfig()}</pre>
+        </div>
+
+        <h2 style={{ fontSize: '14pt', marginBottom: '0.5rem' }}>Configuration — Generic MCP Client</h2>
+        <div className="print-snippet">
+          <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '10pt' }}>{getGenericConfig()}</pre>
+        </div>
+
+        <h2 style={{ fontSize: '14pt', marginTop: '1.5rem', marginBottom: '0.5rem' }}>Getting Started — Example Prompts</h2>
+        <p style={{ fontSize: '10pt', color: '#6b7280', marginBottom: '0.75rem' }}>
+          Once connected, try these prompts in your MCP client:
+        </p>
+        <ul style={{ fontSize: '10pt', lineHeight: '1.8', paddingLeft: '1.5rem' }}>
+          <li>&quot;Show me all products that are low on stock&quot;</li>
+          <li>&quot;Look up the latest invoices for customer John Smith&quot;</li>
+          <li>&quot;What is the current stock level for product SKU-1234?&quot;</li>
+          <li>&quot;Search the knowledge base for return policy information&quot;</li>
+        </ul>
+
+        <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb', fontSize: '9pt', color: '#9ca3af' }}>
+          Generated from PB MCP Admin Dashboard | {window.location.origin}
+        </div>
       </div>
     </div>
   );
