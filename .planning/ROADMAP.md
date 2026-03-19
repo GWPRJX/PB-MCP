@@ -6,15 +6,17 @@
 
 ---
 
-## v1.0 — Core MCP Server (COMPLETE)
+<details>
+<summary>v1.0 — Core MCP Server (COMPLETE)</summary>
 
 **Completed:** 2026-03-17 | 4 phases, 16 plans, 39/40 requirements
+</details>
 
----
-
-## v2.0 — Admin Dashboard + Write Operations (COMPLETE)
+<details>
+<summary>v2.0 — Admin Dashboard + Write Operations (COMPLETE)</summary>
 
 **Completed:** 2026-03-18 | 3 phases, 7 plans, 26/26 requirements | [Archive](milestones/v2.0-ROADMAP.md)
+</details>
 
 ---
 
@@ -60,8 +62,8 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 09-01-PLAN.md — Backend: test-erp-credentials endpoint (no tenant required) + tenant creation accepts ERP config
-- [ ] 09-02-PLAN.md — Frontend: 3-step wizard (Tenant Info -> ERP Credentials with connection test -> API Key)
+- [x] 09-01-PLAN.md — Backend: test-erp-credentials endpoint (no tenant required) + tenant creation accepts ERP config
+- [x] 09-02-PLAN.md — Frontend: 3-step wizard (Tenant Info -> ERP Credentials with connection test -> API Key)
 
 #### Phase 10: Dashboard UX Polish
 **Goal**: Any developer who opens the dashboard can immediately understand how to connect an MCP client and manage a tenant
@@ -72,7 +74,11 @@ Plans:
   2. Setup instructions include configuration snippets for Claude Desktop, Cursor, and a generic JSON MCP client
   3. Admin can click "Export PDF" on a tenant and download a branded PDF containing tenant name, MCP URL, masked API key, and usage instructions
   4. Every technical term in the dashboard (API key, slug, tool permissions, ERP config, etc.) has a tooltip that explains it in plain language on hover
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Tooltip component + Setup tab with MCP client config snippets and copy buttons
+- [ ] 10-02-PLAN.md — Tooltips across all dashboard pages + browser print-to-PDF export
 
 #### Phase 11: Setup Documentation
 **Goal**: Any developer can find, read, and follow documentation to deploy the server on their platform of choice without external help
@@ -91,7 +97,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 8. KB/Docs Management | 2/2 | Complete | 2026-03-19 |
 | 9. Tenant Onboarding Flow | 2/2 | Complete   | 2026-03-19 |
-| 10. Dashboard UX Polish | 0/? | Not started | - |
+| 10. Dashboard UX Polish | 0/2 | In Progress | - |
 | 11. Setup Documentation | 0/? | Not started | - |
 
 ### v2.1 Coverage
@@ -125,9 +131,9 @@ Plans:
 |-----------|--------|-------|-------------|--------|
 | v1.0 Core MCP Server | 4 | 16 | 39/40 | Complete 2026-03-17 |
 | v2.0 Admin Dashboard + Write Ops | 3 | 7 | 26/26 | Complete 2026-03-18 |
-| v2.1 UI Polish + Setup Docs | 4 | TBD | 0/16 | In Progress |
+| v2.1 UI Polish + Setup Docs | 4 | 6+ | 8/16 | In Progress |
 
-**Total shipped:** 7 phases, 23 plans, 65/66 requirements (KB-08 deferred)
+**Total shipped:** 9 phases, 27 plans, 73/74 requirements (KB-08 deferred)
 
 ---
 *Roadmap created: 2026-03-07*
