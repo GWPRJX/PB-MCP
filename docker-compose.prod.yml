@@ -1,0 +1,59 @@
+# Production docker-compose for PB MCP
+# Usage: docker compose -f docker-compose.prod.yml up -d
+#
+# Before first run:
+#   1. Copy .env.example to .env and fill in real values
+#   2. Run migrations: docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
+#   3. Set app_login password and grants (see docs/docker.md)
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: pb_mcp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  migrate:
+    image: migrate/migrate:v4.19.1
+    volumes:
+      - ./db/migrations:/migrations
+    command:
+      - "-path"
+      - "/migrations"
+      - "-database"
+      - "postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/pb_mcp?sslmode=disable"
+      - "up"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - migrate
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgres://app_login:${APP_LOGIN_PASSWORD:-changeme}@postgres:5432/pb_mcp
+      - DATABASE_MIGRATION_URL=postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/pb_mcp
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

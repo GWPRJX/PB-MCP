@@ -28,11 +28,11 @@
     "drizzle-orm": "^0.45.0",
     "fastify": "^5.0.0",
     "postgres": "^3.4.0",
+    "tsx": "latest",
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "tsx": "latest",
     "typescript": "^5.0.0",
     "vitest": "latest"
   }
