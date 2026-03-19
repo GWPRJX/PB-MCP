@@ -16,8 +16,9 @@ import {
   type ToolPermission,
   type AuditEntry,
 } from '../api';
+import { Tooltip } from '../components/Tooltip';
 
-type Tab = 'keys' | 'tools' | 'erp' | 'audit';
+type Tab = 'keys' | 'tools' | 'erp' | 'setup' | 'audit';
 
 export function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,8 +46,14 @@ export function TenantDetailPage() {
     { key: 'keys', label: 'API Keys' },
     { key: 'tools', label: 'Tool Permissions' },
     { key: 'erp', label: 'ERP Config' },
+    { key: 'setup', label: 'Setup' },
     { key: 'audit', label: 'Audit Log' },
   ];
+
+  const handleExportPdf = (_tenant: TenantDetail) => {
+    // Implemented in Plan 02 — triggers print-to-PDF flow
+    setTab('setup');
+  };
 
   return (
     <div>
@@ -60,6 +67,15 @@ export function TenantDetailPage() {
             {tenant.status}
           </span>
           <span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">{tenant.plan}</span>
+          <button
+            onClick={() => handleExportPdf(tenant)}
+            title="Export setup as PDF"
+            className="text-gray-400 hover:text-gray-600 p-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.552c.377.046.752.097 1.126.153A2.212 2.212 0 0 1 18 8.653v4.097A2.25 2.25 0 0 1 15.75 15h-.75v.75c0 .966-.784 1.75-1.75 1.75h-6.5A1.75 1.75 0 0 1 5 15.75V15h-.75A2.25 2.25 0 0 1 2 12.75V8.653c0-1.082.775-2.034 1.874-2.198.374-.056.75-.107 1.126-.153V2.75Zm1.5 0v3.379a49.71 49.71 0 0 1 7 0V2.75a.25.25 0 0 0-.25-.25h-6.5a.25.25 0 0 0-.25.25Zm-1.543 5.674A.75.75 0 0 1 5.75 8h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.793-.576ZM6.5 15.75v-3h7v3a.25.25 0 0 1-.25.25h-6.5a.25.25 0 0 1-.25-.25Z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
         <p className="text-sm text-gray-500 mt-1">
           Slug: <code className="text-xs bg-gray-100 px-1 rounded">{tenant.slug}</code>
@@ -85,7 +101,198 @@ export function TenantDetailPage() {
       {tab === 'keys' && <KeysTab tenant={tenant} onRefresh={load} />}
       {tab === 'tools' && <ToolsTab tenantId={tenant.id} />}
       {tab === 'erp' && <ErpTab tenant={tenant} />}
+      {tab === 'setup' && <SetupTab tenant={tenant} />}
       {tab === 'audit' && <AuditTab tenantId={tenant.id} />}
+    </div>
+  );
+}
+
+function SetupTab({ tenant }: { tenant: TenantDetail }) {
+  const activeKeys = tenant.apiKeys.filter(
+    (k) => k.status === 'active' && (!k.expiresAt || new Date(k.expiresAt) > new Date())
+  );
+  const [selectedKeyId, setSelectedKeyId] = useState(activeKeys[0]?.id ?? '');
+  const [activeSnippet, setActiveSnippet] = useState<'claude' | 'cursor' | 'generic'>('claude');
+  const [copiedField, setCopiedField] = useState<string>('');
+
+  const serverUrl = (() => {
+    const loc = window.location;
+    const base = `${loc.protocol}//${loc.host}`;
+    return `${base}/mcp`;
+  })();
+
+  const selectedKey = activeKeys.find((k) => k.id === selectedKeyId);
+
+  const handleCopy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(''), 2000);
+  };
+
+  const getClaudeDesktopConfig = () => {
+    return `// Config file: ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
+// or: %APPDATA%\\Claude\\claude_desktop_config.json (Windows)
+{
+  "mcpServers": {
+    "${tenant.slug}": {
+      "url": "${serverUrl}",
+      "headers": {
+        "x-api-key": "YOUR_API_KEY"
+      }
+    }
+  }
+}`;
+  };
+
+  const getCursorConfig = () => {
+    return `// Config file: ~/.cursor/mcp.json
+{
+  "mcpServers": {
+    "${tenant.slug}": {
+      "url": "${serverUrl}",
+      "headers": {
+        "x-api-key": "YOUR_API_KEY"
+      }
+    }
+  }
+}`;
+  };
+
+  const getGenericConfig = () => {
+    return `Server URL:   ${serverUrl}
+Transport:    Streamable HTTP
+Header:       x-api-key: YOUR_API_KEY
+
+Replace YOUR_API_KEY with the API key generated for this tenant.`;
+  };
+
+  const getCurrentSnippet = () => {
+    if (activeSnippet === 'claude') return getClaudeDesktopConfig();
+    if (activeSnippet === 'cursor') return getCursorConfig();
+    return getGenericConfig();
+  };
+
+  const snippetLabels: { key: 'claude' | 'cursor' | 'generic'; label: string }[] = [
+    { key: 'claude', label: 'Claude Desktop' },
+    { key: 'cursor', label: 'Cursor' },
+    { key: 'generic', label: 'Generic' },
+  ];
+
+  return (
+    <div className="max-w-2xl">
+      {/* API key selector — only show if multiple active keys */}
+      {activeKeys.length > 1 && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Select API Key
+            <Tooltip text="If you have multiple active API keys, select which one you want to reference in the config snippets below." />
+          </label>
+          <select
+            value={selectedKeyId}
+            onChange={(e) => setSelectedKeyId(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            {activeKeys.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.label || 'Unlabeled'} — created {new Date(k.createdAt).toLocaleDateString()}
+              </option>
+            ))}
+          </select>
+          {selectedKey && (
+            <p className="text-xs text-gray-500 mt-1">
+              Selected: <span className="font-medium">{selectedKey.label || 'Unlabeled key'}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {activeKeys.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-yellow-800">
+            No active API keys. Create one in the <strong>API Keys</strong> tab first.
+          </p>
+        </div>
+      )}
+
+      {/* Server URL display */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-gray-700 mb-2">
+          MCP Server URL
+          <Tooltip text="The endpoint your MCP client connects to. This is automatically derived from the dashboard URL." />
+        </h3>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm font-mono text-gray-800 select-all">
+            {serverUrl}
+          </code>
+          <button
+            onClick={() => handleCopy(serverUrl, 'url')}
+            className="shrink-0 border border-gray-300 text-gray-700 text-xs font-medium py-2 px-3 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            {copiedField === 'url' ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
+
+      {/* API key note */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-gray-700 mb-2">
+          API Key
+          <Tooltip text="A secret token that authenticates your MCP client with this tenant's data. API keys are only shown in full at the moment they are created." />
+        </h3>
+        <p className="text-sm text-gray-500">
+          Replace <code className="bg-gray-100 px-1 rounded text-xs">YOUR_API_KEY</code> in the
+          snippets below with the API key shown when you created it. API keys are only displayed
+          once at creation for security.
+        </p>
+      </div>
+
+      {/* Config snippet tabs */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Configuration Snippets</h3>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          {/* Tab bar */}
+          <div className="flex border-b border-gray-200 bg-gray-50">
+            {snippetLabels.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => setActiveSnippet(s.key)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeSnippet === s.key
+                    ? 'border-blue-600 text-blue-600 bg-white'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          {/* Snippet content */}
+          <div className="relative">
+            <pre className="p-4 text-sm font-mono text-gray-800 overflow-x-auto bg-white whitespace-pre">
+              {getCurrentSnippet()}
+            </pre>
+            <button
+              onClick={() => handleCopy(getCurrentSnippet(), 'snippet')}
+              className="absolute top-2 right-2 border border-gray-300 text-gray-700 text-xs font-medium py-1 px-2 rounded hover:bg-gray-50 bg-white transition-colors"
+            >
+              {copiedField === 'snippet' ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Export PDF button */}
+      <div className="pt-4 border-t border-gray-200">
+        <button
+          onClick={() => window.print()}
+          className="border border-gray-300 text-gray-700 text-sm font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+        >
+          Export as PDF
+        </button>
+        <p className="text-xs text-gray-400 mt-2">
+          Opens your browser&apos;s print dialog. Choose &quot;Save as PDF&quot; to download.
+        </p>
+      </div>
     </div>
   );
 }
