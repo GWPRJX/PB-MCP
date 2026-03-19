@@ -28,7 +28,17 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
   // POST /admin/tenants — create tenant + initial API key
   // ──────────────────────────────────────────────────────────────
   server.post<{
-    Body: { name: string; slug: string; plan?: string };
+    Body: {
+      name: string;
+      slug: string;
+      plan?: string;
+      erpBaseUrl?: string;
+      erpClientId?: string;
+      erpAppSecret?: string;
+      erpUsername?: string;
+      erpPassword?: string;
+      erpTerminal?: string;
+    };
   }>('/tenants', {
     schema: {
       summary: 'Create a new tenant',
@@ -41,6 +51,12 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
           name: { type: 'string', minLength: 1, maxLength: 200 },
           slug: { type: 'string', minLength: 1, maxLength: 100, pattern: '^[a-z0-9-]+$' },
           plan: { type: 'string', enum: ['standard', 'pro', 'enterprise'], default: 'standard' },
+          erpBaseUrl: { type: 'string' },
+          erpClientId: { type: 'string' },
+          erpAppSecret: { type: 'string' },
+          erpUsername: { type: 'string' },
+          erpPassword: { type: 'string' },
+          erpTerminal: { type: 'string' },
         },
       },
       response: {
@@ -56,10 +72,24 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { name, slug, plan = 'standard' } = request.body;
+    const {
+      name,
+      slug,
+      plan = 'standard',
+      erpBaseUrl,
+      erpClientId,
+      erpAppSecret,
+      erpUsername,
+      erpPassword,
+      erpTerminal,
+    } = request.body;
+
+    const erpConfig = (erpBaseUrl || erpClientId || erpAppSecret || erpUsername || erpPassword || erpTerminal)
+      ? { erpBaseUrl, erpClientId, erpAppSecret, erpUsername, erpPassword, erpTerminal }
+      : undefined;
 
     try {
-      const { tenant, rawApiKey } = await createTenant(name, slug, plan);
+      const { tenant, rawApiKey } = await createTenant(name, slug, plan, erpConfig);
       return reply.status(201).send({ tenantId: tenant.id, apiKey: rawApiKey });
     } catch (err) {
       const error = err as Error & { code?: string };
@@ -69,6 +99,51 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
       process.stderr.write(`[admin] ERROR creating tenant: ${error.message}\n`);
       return reply.status(500).send({ error: 'Internal server error' });
     }
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // POST /admin/test-erp-credentials — test ERP credentials without a tenant
+  // ──────────────────────────────────────────────────────────────
+  server.post<{
+    Body: {
+      erpBaseUrl: string;
+      erpClientId: string;
+      erpAppSecret: string;
+      erpUsername: string;
+      erpPassword: string;
+      erpTerminal: string;
+    };
+  }>('/test-erp-credentials', {
+    schema: {
+      summary: 'Test ERP credentials without creating a tenant',
+      description: 'Attempts OAuth token acquisition with raw credentials. Use during onboarding before tenant creation.',
+      security: [{ adminSecret: [] }],
+      body: {
+        type: 'object',
+        required: ['erpBaseUrl', 'erpClientId', 'erpAppSecret', 'erpUsername', 'erpPassword', 'erpTerminal'],
+        properties: {
+          erpBaseUrl: { type: 'string' },
+          erpClientId: { type: 'string' },
+          erpAppSecret: { type: 'string' },
+          erpUsername: { type: 'string' },
+          erpPassword: { type: 'string' },
+          erpTerminal: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            connected: { type: 'boolean' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const { testErpCredentials } = await import('./connection-tester.js');
+    const result = await testErpCredentials(request.body);
+    return reply.status(200).send(result);
   });
 
   // ──────────────────────────────────────────────────────────────

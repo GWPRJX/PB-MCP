@@ -2,6 +2,47 @@ import postgres from 'postgres';
 import { getToken, type PosiboltConfig } from '../posibolt/client.js';
 
 /**
+ * Test ERP credentials directly (no database lookup required).
+ * Used during onboarding before a tenant record exists.
+ */
+export async function testErpCredentials(credentials: {
+  erpBaseUrl: string;
+  erpClientId: string;
+  erpAppSecret: string;
+  erpUsername: string;
+  erpPassword: string;
+  erpTerminal: string;
+}): Promise<{ connected: boolean; message: string }> {
+  try {
+    const config: PosiboltConfig = {
+      baseUrl: credentials.erpBaseUrl,
+      clientId: credentials.erpClientId,
+      appSecret: credentials.erpAppSecret,
+      username: credentials.erpUsername,
+      password: credentials.erpPassword,
+      terminal: credentials.erpTerminal,
+    };
+    await getToken(config);
+    return { connected: true, message: 'Successfully authenticated with POSibolt API' };
+  } catch (err) {
+    const msg = (err as Error).message;
+    let hint = '';
+    if (msg.includes('ENOTFOUND') || msg.includes('getaddrinfo')) {
+      hint = ' — Check the Base URL: the hostname could not be resolved.';
+    } else if (msg.includes('ECONNREFUSED')) {
+      hint = ' — The server refused the connection. Verify the Base URL and port.';
+    } else if (msg.includes('ETIMEDOUT') || msg.includes('timeout')) {
+      hint = ' — Connection timed out. Check if the server is reachable from this network.';
+    } else if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('invalid_client')) {
+      hint = ' — Authentication failed. Double-check Client ID, App Secret, Username, and Password.';
+    } else if (msg.includes('certificate') || msg.includes('SSL') || msg.includes('TLS')) {
+      hint = ' — SSL/TLS error. The server certificate may be invalid or self-signed.';
+    }
+    return { connected: false, message: `Connection failed: ${msg}${hint}` };
+  }
+}
+
+/**
  * Test ERP connection for a tenant by attempting OAuth token acquisition.
  */
 export async function testErpConnection(
