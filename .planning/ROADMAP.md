@@ -43,7 +43,11 @@
   3. Dashboard displays last sync timestamp, article count, and success/failure status
   4. Admin can manually upload API docs at server level to fill gaps not covered by YouTrack
   5. Uploaded docs are searchable via MCP KB tools alongside YouTrack-synced articles
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Backend: server_settings table, settings service, admin endpoints, sync/scheduler DB integration
+- [ ] 08-02-PLAN.md — Frontend: KnowledgeBasePage with YT config, sync status, doc management; remove DocsTab from tenant page
 
 #### Phase 9: Tenant Onboarding Flow
 **Goal**: New tenants are created only after ERP credentials are verified, preventing broken tenant records from day one
@@ -81,7 +85,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. KB/Docs Management | 0/? | Not started | - |
+| 8. KB/Docs Management | 0/2 | Planning complete | - |
 | 9. Tenant Onboarding Flow | 0/? | Not started | - |
 | 10. Dashboard UX Polish | 0/? | Not started | - |
 | 11. Setup Documentation | 0/? | Not started | - |
