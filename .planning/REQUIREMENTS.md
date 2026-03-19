@@ -12,8 +12,8 @@ Requirements for v2.1 release. Each maps to roadmap phases.
 - [x] **KB-01**: Admin can configure YouTrack connection settings (API key, base URL, project) from the dashboard
 - [x] **KB-02**: Admin can trigger manual YouTrack sync from dashboard via sync button
 - [x] **KB-03**: Dashboard shows last sync timestamp, article count, and success/failure status
-- [ ] **KB-04**: Admin can manually upload API docs at server level to fill gaps not covered by YouTrack sync
-- [ ] **KB-05**: Uploaded docs are searchable via MCP KB tools alongside YouTrack-synced articles
+- [x] **KB-04**: Admin can manually upload API docs at server level to fill gaps not covered by YouTrack sync
+- [x] **KB-05**: Uploaded docs are searchable via MCP KB tools alongside YouTrack-synced articles
 
 ### Tenant Onboarding
 
