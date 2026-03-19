@@ -20,6 +20,9 @@ Small business owners and their AI assistants can manage real ERP operations —
 - API key auth with optional expiry for MCP clients
 - YouTrack KB sync + admin doc upload (DOC-* prefix, searchable via MCP tools)
 - Write tools: stock transfers, invoice creation/cancellation, contact CRUD via POSibolt POST API
+- Setup tab on tenant detail page with MCP client config snippets (Claude Desktop, Cursor, Generic) and copy buttons
+- Browser print-to-PDF export for tenant setup instructions
+- Tooltips on all technical terms across dashboard pages
 
 **Tech stack:** TypeScript, Node.js 22 LTS, Fastify 5, PostgreSQL + RLS, Drizzle ORM, MCP SDK 1.27.x, React + Vite + Tailwind (dashboard)
 
@@ -79,4 +82,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-19 — v2.1 milestone started*
+*Last updated: 2026-03-19 — Phase 10 (Dashboard UX Polish) complete*
