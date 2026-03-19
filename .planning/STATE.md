@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Core MCP Server
-current_phase: Phase 8 — KB/Docs Management
-status: planning
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-19T10:11:50.315Z"
+status: unknown
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-19T10:43:19Z"
 progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 8
+  completed_phases: 7
+  total_plans: 25
+  completed_plans: 24
 ---
 
 # STATE: PB MCP
@@ -31,27 +30,14 @@ progress:
 
 ## Current Position
 
-**Milestone:** v2.1 — UI Polish + Setup Documentation
-**Current Phase:** Phase 8 — KB/Docs Management
-**Status:** Roadmap complete, ready to plan Phase 8
-
-**Progress:**
-
-```
-v1.0 [##########] 100% COMPLETE (4/4 phases, 16/16 plans)
-v2.0 [##########] 100% COMPLETE (3/3 phases, 7/7 plans) — ARCHIVED
-v2.1 [░░░░░░░░░░]   0% IN PROGRESS (0/4 phases, 0/? plans)
-```
-
-**Overall:** 7 phases, 23 plans, 65/66 requirements shipped across 2 milestones.
-
----
+Phase: 08 (kb-docs-management) — EXECUTING
+Plan: 2 of 2
 
 ## v2.1 Phase Map
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | Not started |
+| 8. KB/Docs Management | Admin can manage server-level docs + YouTrack sync from dashboard | KB-01, KB-02, KB-03 | In Progress (1/2 plans done) |
 | 9. Tenant Onboarding Flow | Credentials-first, ERP-verified tenant creation | ONBOARD-01, ONBOARD-02, ONBOARD-03 | Not started |
 | 10. Dashboard UX Polish | Setup instructions, PDF export, tooltips | UX-01, UX-02, UX-03, UX-04 | Not started |
 | 11. Setup Documentation | README + Linux, Docker, Windows deployment guides | DOCS-01, DOCS-02, DOCS-03, DOCS-04 | Not started |
@@ -85,6 +71,13 @@ v2.1 [░░░░░░░░░░]   0% IN PROGRESS (0/4 phases, 0/? plans)
 5. **Idempotency on financial writes** — write tools should handle duplicate submissions gracefully
 6. **JWT secret management** — JWT signing secret must be in env var, not hardcoded
 
+### Phase 8 Plan 1 Decisions
+
+- **server_settings as key-value store:** Simple TEXT PRIMARY KEY / TEXT value table — avoids schema migrations for each new setting, reads grouped by key, UPSERT pattern for updates
+- **DB-first with env var fallback:** sync.ts and scheduler.ts check DB settings first, fall back to env vars — enables zero-downtime migration from env-var-only to dashboard-managed config
+- **scheduler returns void:** Changed from `ReturnType<typeof setInterval>` to `void` because DB interval read is async — call site in index.ts already ignores return value
+- **Token masking at GET endpoint:** Token displayed as first4****last4 — raw token never exposed via GET; write-only via PUT
+
 ### v2.1 Notes
 
 - KB-01 changes doc upload from per-tenant to server-level — check existing upload endpoint scope
@@ -96,9 +89,9 @@ v2.1 [░░░░░░░░░░]   0% IN PROGRESS (0/4 phases, 0/? plans)
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T10:11:50.310Z
-**Stopped at:** Phase 8 context gathered
-**Next action:** Plan Phase 8 via `/gsd:plan-phase 8`
+**Last session:** 2026-03-19T10:43:19Z
+**Stopped at:** Completed 08-01-PLAN.md
+**Next action:** Execute 08-02-PLAN.md (KB settings dashboard page)
 
 ---
 *State initialized: 2026-03-07*

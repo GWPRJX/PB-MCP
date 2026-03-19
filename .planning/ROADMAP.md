@@ -43,7 +43,7 @@
   3. Dashboard displays last sync timestamp, article count, and success/failure status
   4. Admin can manually upload API docs at server level to fill gaps not covered by YouTrack
   5. Uploaded docs are searchable via MCP KB tools alongside YouTrack-synced articles
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 08-01-PLAN.md — Backend: server_settings table, settings service, admin endpoints, sync/scheduler DB integration
@@ -85,7 +85,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 8. KB/Docs Management | 0/2 | Planning complete | - |
+| 8. KB/Docs Management | 1/2 | In Progress|  |
 | 9. Tenant Onboarding Flow | 0/? | Not started | - |
 | 10. Dashboard UX Polish | 0/? | Not started | - |
 | 11. Setup Documentation | 0/? | Not started | - |
