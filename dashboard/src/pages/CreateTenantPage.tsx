@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createTenant, testErpCredentials } from '../api';
+import { testErpCredentials, getToken } from '../api';
 import { Tooltip } from '../components/Tooltip';
 
 const wizardSteps = [
@@ -29,6 +29,19 @@ const erpFields = [
 
 type ErpKey = 'erpBaseUrl' | 'erpClientId' | 'erpAppSecret' | 'erpUsername' | 'erpPassword' | 'erpTerminal';
 
+/**
+ * Three-step tenant creation wizard.
+ *
+ * - Step 1: Tenant name, URL-safe slug (auto-generated from name), and plan.
+ * - Step 2: POSibolt ERP credentials with a "Test Connection" gate — the user
+ *   must verify connectivity before proceeding.
+ * - Step 3: Summary review followed by tenant creation. On success, displays
+ *   the one-time plaintext API key with a copy button.
+ *
+ * Navigation between steps is managed via local `step` state. The wizard
+ * resets completely via {@link handleCreateAnother} to allow creating multiple
+ * tenants in sequence.
+ */
 export function CreateTenantPage() {
   const navigate = useNavigate();
 
@@ -60,11 +73,20 @@ export function CreateTenantPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ tenantId: string; apiKey: string } | null>(null);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
 
   // Slug auto-generation from name
+  /**
+   * Updates the name field and auto-generates a URL-safe slug from it, unless
+   * the user has already manually edited the slug field.
+   * @param value - New value for the tenant name input.
+   */
   const handleNameChange = (value: string) => {
     setName(value);
+    if (fieldErrors.name) {
+      setFieldErrors((prev) => ({ ...prev, name: '' }));
+    }
     if (!slugEdited) {
       const autoSlug = value
         .toLowerCase()
@@ -74,13 +96,28 @@ export function CreateTenantPage() {
     }
   };
 
+  /**
+   * Updates the slug field, sanitising the input to lowercase alphanumerics
+   * and hyphens only. Marks the slug as manually edited so auto-generation
+   * from the name is suppressed for subsequent name changes.
+   * @param value - Raw value from the slug input.
+   */
   const handleSlugChange = (value: string) => {
     const sanitized = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
     setSlug(sanitized);
     setSlugEdited(true);
+    if (fieldErrors.slug) {
+      setFieldErrors((prev) => ({ ...prev, slug: '' }));
+    }
   };
 
   // ERP field change — resets connection test
+  /**
+   * Updates a single ERP credential field and resets the connection test
+   * result, requiring the user to re-test before proceeding to step 3.
+   * @param key - The ERP field key to update.
+   * @param value - New field value.
+   */
   const handleErpFieldChange = (key: ErpKey, value: string) => {
     setErpFields((prev) => ({ ...prev, [key]: value }));
     setConnectionTested(false);
@@ -88,6 +125,11 @@ export function CreateTenantPage() {
   };
 
   // Test ERP connection
+  /**
+   * Sends the current ERP credentials to the server for a live connection test
+   * without saving them. Sets `connectionTested` to true only on success,
+   * which gates progression to step 3.
+   */
   const handleTestConnection = async () => {
     setTesting(true);
     setTestResult(null);
@@ -112,22 +154,48 @@ export function CreateTenantPage() {
   };
 
   // Create tenant
+  /**
+   * Submits the completed wizard data to create the tenant. On success, stores
+   * the response (tenant ID and one-time API key) in `result` state to display
+   * the post-creation screen.
+   */
   const handleCreate = async () => {
     setError('');
+    setFieldErrors({});
     setSubmitting(true);
     try {
-      const res = await createTenant({
-        name,
-        slug,
-        plan,
-        erpBaseUrl: erpFields_state.erpBaseUrl,
-        erpClientId: erpFields_state.erpClientId,
-        erpAppSecret: erpFields_state.erpAppSecret,
-        erpUsername: erpFields_state.erpUsername,
-        erpPassword: erpFields_state.erpPassword,
-        erpTerminal: erpFields_state.erpTerminal,
+      const res = await fetch('/admin/tenants', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          name,
+          slug,
+          plan,
+          erpBaseUrl: erpFields_state.erpBaseUrl,
+          erpClientId: erpFields_state.erpClientId,
+          erpAppSecret: erpFields_state.erpAppSecret,
+          erpUsername: erpFields_state.erpUsername,
+          erpPassword: erpFields_state.erpPassword,
+          erpTerminal: erpFields_state.erpTerminal,
+        }),
       });
-      setResult(res);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        if (body.field) {
+          setFieldErrors({ [body.field]: body.error });
+          if (body.field === 'name' || body.field === 'slug') {
+            setStep(1);
+          }
+        } else {
+          setError(body.error || `HTTP ${res.status}`);
+        }
+        return;
+      }
+      const data = await res.json();
+      setResult(data);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -136,6 +204,10 @@ export function CreateTenantPage() {
   };
 
   // Copy API key
+  /**
+   * Copies the newly-created API key to the clipboard and shows a "Copied!"
+   * confirmation that auto-clears after 2 seconds.
+   */
   const handleCopy = () => {
     if (!result) return;
     navigator.clipboard.writeText(result.apiKey);
@@ -144,6 +216,10 @@ export function CreateTenantPage() {
   };
 
   // Reset all state for "Create Another"
+  /**
+   * Resets all wizard state back to defaults so the user can immediately
+   * begin creating another tenant without navigating away.
+   */
   const handleCreateAnother = () => {
     setStep(1);
     setName('');
@@ -164,6 +240,7 @@ export function CreateTenantPage() {
     setSubmitting(false);
     setResult(null);
     setError('');
+    setFieldErrors({});
     setCopied(false);
   };
 
@@ -173,6 +250,12 @@ export function CreateTenantPage() {
   const canProceedStep1 = name.trim() !== '' && slug.trim() !== '';
 
   // Stepper component
+  /**
+   * Inline step-indicator bar. Renders each wizard step as a numbered circle
+   * connected by a horizontal line. Completed steps show a checkmark and
+   * blue fill; the current step shows the step number in blue; future steps
+   * are greyed out.
+   */
   const Stepper = () => (
     <div className="flex items-center mb-8">
       {wizardSteps.map((s, i) => {
@@ -229,8 +312,9 @@ export function CreateTenantPage() {
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.name ? 'border-red-400' : 'border-gray-300'}`}
             />
+            {fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -242,9 +326,12 @@ export function CreateTenantPage() {
               onChange={(e) => handleSlugChange(e.target.value)}
               required
               pattern="^[a-z0-9-]+$"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 border rounded-md text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.slug ? 'border-red-400' : 'border-gray-300'}`}
             />
-            <p className="text-xs text-gray-400 mt-1">Lowercase letters, numbers, and hyphens only</p>
+            {fieldErrors.slug
+              ? <p className="text-xs text-red-600 mt-1">{fieldErrors.slug}</p>
+              : <p className="text-xs text-gray-400 mt-1">Lowercase letters, numbers, and hyphens only</p>
+            }
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -3,17 +3,27 @@ import { z } from 'zod';
 import { getErpConfig } from '../context.js';
 import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
+import { logger } from '../logger.js';
 
 /* ------------------------------------------------------------------ */
 /*  Helper: date formatting                                            */
 /* ------------------------------------------------------------------ */
 
-/** YYYY-MM-DD string for POSibolt salesorder endpoints. */
+/**
+ * Format a Date as a YYYY-MM-DD string for POSibolt salesorder endpoints.
+ *
+ * @param d - The date to format.
+ * @returns ISO date string truncated to 10 characters (e.g. `"2024-03-15"`).
+ */
 function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Default "from" date: 30 days before today. */
+/**
+ * Compute the default "from" date for order/invoice queries: 30 days before today.
+ *
+ * @returns A new Date set to today minus 30 days.
+ */
 function defaultFromDate(): Date {
   const d = new Date();
   d.setDate(d.getDate() - 30);
@@ -143,7 +153,7 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
           filter: { fromDate: from, toDate: to, customerId, orgId },
         });
       } catch (err) {
-        process.stderr.write(`[tools/orders] list_orders error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'list_orders error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -177,7 +187,7 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
 
         return toolSuccess(order);
       } catch (err) {
-        process.stderr.write(`[tools/orders] get_order error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'get_order error');
         if (err instanceof Error && err.message.includes('404')) {
           return toolError('NOT_FOUND', `Order ${orderNo} not found`);
         }
@@ -234,7 +244,7 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
           },
         });
       } catch (err) {
-        process.stderr.write(`[tools/orders] list_invoices error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'list_invoices error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -268,7 +278,7 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
 
         return toolSuccess(invoice);
       } catch (err) {
-        process.stderr.write(`[tools/orders] get_invoice error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'get_invoice error');
         if (err instanceof Error && err.message.includes('404')) {
           return toolError('NOT_FOUND', `Invoice ${invoiceNo} not found`);
         }
@@ -309,7 +319,7 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
           customerId,
         });
       } catch (err) {
-        process.stderr.write(`[tools/orders] list_overdue_invoices error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'list_overdue_invoices error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -377,7 +387,7 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
           filter: { fromDate: from, toDate: to, customerId },
         });
       } catch (err) {
-        process.stderr.write(`[tools/orders] get_payment_summary error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'get_payment_summary error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),

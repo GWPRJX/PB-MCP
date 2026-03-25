@@ -1,8 +1,35 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { getErpConfig } from '../context.js';
+import { getErpConfig, getTenantId } from '../context.js';
+import { logger } from '../logger.js';
 import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
+
+/* ------------------------------------------------------------------ */
+/*  BP list TTL cache (5 minutes per tenant)                          */
+/* ------------------------------------------------------------------ */
+
+interface CachedBpList {
+  data: BpListItem[];
+  expiry: number;
+}
+
+const bpCache = new Map<string, CachedBpList>();
+const BP_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Get BP list from cache or fetch from POSibolt. */
+async function getBpList(config: Parameters<typeof pbGet>[0]): Promise<BpListItem[]> {
+  const tenantId = getTenantId();
+  const cached = bpCache.get(tenantId);
+  if (cached && cached.expiry > Date.now()) {
+    logger.debug({ tenantId, count: cached.data.length }, 'BP list cache hit');
+    return cached.data;
+  }
+  const data = await pbGet<BpListItem[]>(config, '/customermaster/allbplist');
+  bpCache.set(tenantId, { data, expiry: Date.now() + BP_CACHE_TTL_MS });
+  logger.info({ tenantId, count: data.length }, 'BP list fetched and cached');
+  return data;
+}
 
 /* ------------------------------------------------------------------ */
 /*  POSibolt business-partner (BP) response shape                     */
@@ -68,7 +95,7 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
     withAudit('list_contacts', async ({ limit = 50, offset = 0, type }) => {
       try {
         const config = getErpConfig();
-        const allBp = await pbGet<BpListItem[]>(config, '/customermaster/allbplist');
+        const allBp = await getBpList(config);
         const list = Array.isArray(allBp) ? allBp : [];
 
         // Optional type filter
@@ -84,7 +111,7 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
 
         return toolSuccess({ items, total_count: totalCount, next_cursor: nextCursor });
       } catch (err) {
-        process.stderr.write(`[tools/crm] list_contacts error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'list_contacts error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -113,7 +140,7 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
         if (msg.includes('404')) {
           return toolError('NOT_FOUND', `Customer ${customerId} not found`);
         }
-        process.stderr.write(`[tools/crm] get_contact error: ${msg}\n`);
+        logger.error({ err: msg }, 'get_contact error');
         return toolError('INTERNAL_ERROR', msg);
       }
     }),
@@ -136,7 +163,7 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
     withAudit('search_contacts', async ({ query, limit = 50, offset = 0 }) => {
       try {
         const config = getErpConfig();
-        const allBp = await pbGet<BpListItem[]>(config, '/customermaster/allbplist');
+        const allBp = await getBpList(config);
         const list = Array.isArray(allBp) ? allBp : [];
 
         const q = query.toLowerCase();
@@ -153,7 +180,7 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
 
         return toolSuccess({ items, total_count: totalCount, next_cursor: nextCursor });
       } catch (err) {
-        process.stderr.write(`[tools/crm] search_contacts error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'search_contacts error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -189,7 +216,7 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
         if (msg.includes('404')) {
           return toolError('NOT_FOUND', `Customer ${customerId} not found or has no pending orders`);
         }
-        process.stderr.write(`[tools/crm] get_contact_orders error: ${msg}\n`);
+        logger.error({ err: msg }, 'get_contact_orders error');
         return toolError('INTERNAL_ERROR', msg);
       }
     }),
@@ -238,7 +265,7 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
         if (msg.includes('404')) {
           return toolError('NOT_FOUND', `Customer ${customerId} not found or has no open invoices`);
         }
-        process.stderr.write(`[tools/crm] get_contact_invoices error: ${msg}\n`);
+        logger.error({ err: msg }, 'get_contact_invoices error');
         return toolError('INTERNAL_ERROR', msg);
       }
     }),

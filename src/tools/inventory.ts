@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getErpConfig } from '../context.js';
 import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
+import { logger } from '../logger.js';
 
 /* ------------------------------------------------------------------ */
 /*  POSibolt product-list response shape                              */
@@ -94,9 +95,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
           next_cursor: nextCursor,
         });
       } catch (err) {
-        process.stderr.write(
-          `[tools/inventory] list_products error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'list_products error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -141,9 +140,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
           upc: p.upc,
         });
       } catch (err) {
-        process.stderr.write(
-          `[tools/inventory] get_product error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'get_product error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -182,9 +179,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
           count: items.length,
         });
       } catch (err) {
-        process.stderr.write(
-          `[tools/inventory] list_stock_levels error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'list_stock_levels error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -229,9 +224,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
           count: items.length,
         });
       } catch (err) {
-        process.stderr.write(
-          `[tools/inventory] get_stock_level error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'get_stock_level error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -294,9 +287,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
           next_cursor: nextCursor,
         });
       } catch (err) {
-        process.stderr.write(
-          `[tools/inventory] list_low_stock error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'list_low_stock error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -319,9 +310,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
           suggestedParams: { type: 'vendor', searchText: '<vendor name>' },
         });
       } catch (err) {
-        process.stderr.write(
-          `[tools/inventory] list_suppliers error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'list_suppliers error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -355,7 +344,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
         if (msg.includes('404') || msg.includes('not found')) {
           return toolError('NOT_FOUND', `Vendor with ID ${vendorId} not found`);
         }
-        process.stderr.write(`[tools/inventory] get_supplier error: ${msg}\n`);
+        logger.error({ err }, 'get_supplier error');
         return toolError('INTERNAL_ERROR', msg);
       }
     }),

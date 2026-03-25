@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom';
 import { listTenants, type Tenant } from '../api';
 import { Tooltip } from '../components/Tooltip';
 
+/**
+ * Tenant list page. Fetches all tenants on mount and renders them in a table
+ * showing name, slug, plan, status, key count, and creation date. Provides a
+ * "Create Tenant" link to the creation wizard. Each tenant name links to its
+ * detail page.
+ */
 export function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);

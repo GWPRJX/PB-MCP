@@ -20,6 +20,15 @@ import { Tooltip } from '../components/Tooltip';
 
 type Tab = 'keys' | 'tools' | 'erp' | 'setup' | 'audit';
 
+/**
+ * Tenant detail page. Loads a single tenant by URL param `id` and renders a
+ * tabbed interface with five tabs:
+ * - **API Keys** ({@link KeysTab}) — issue, revoke, and scope keys.
+ * - **Tool Permissions** ({@link ToolsTab}) — enable/disable MCP tools per tenant.
+ * - **ERP Config** ({@link ErpTab}) — update and test POSibolt credentials.
+ * - **Setup** ({@link SetupTab}) — MCP client config snippets and PDF export.
+ * - **Audit Log** ({@link AuditTab}) — paginated, filterable tool call history.
+ */
 export function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [tenant, setTenant] = useState<TenantDetail | null>(null);
@@ -108,6 +117,15 @@ export function TenantDetailPage() {
   );
 }
 
+/**
+ * Setup guide tab. Generates ready-to-paste MCP client configuration snippets
+ * for Claude Desktop, Cursor, and generic clients using the tenant's slug and
+ * the current server URL. When multiple active keys exist, the user can select
+ * which key to reference. Also provides a print-to-PDF export that renders a
+ * print-only layout with all three snippet variants and example prompts.
+ *
+ * @param tenant - Full tenant detail including active API keys and slug.
+ */
 function SetupTab({ tenant }: { tenant: TenantDetail }) {
   const activeKeys = tenant.apiKeys.filter(
     (k) => k.status === 'active' && (!k.expiresAt || new Date(k.expiresAt) > new Date())
@@ -167,12 +185,6 @@ Header:       x-api-key: YOUR_API_KEY
 Replace YOUR_API_KEY with the API key generated for this tenant.`;
   };
 
-  const getCurrentSnippet = () => {
-    if (activeSnippet === 'claude') return getClaudeDesktopConfig();
-    if (activeSnippet === 'cursor') return getCursorConfig();
-    return getGenericConfig();
-  };
-
   const snippetLabels: { key: 'claude' | 'cursor' | 'generic'; label: string }[] = [
     { key: 'claude', label: 'Claude Desktop' },
     { key: 'cursor', label: 'Cursor' },
@@ -181,6 +193,11 @@ Replace YOUR_API_KEY with the API key generated for this tenant.`;
 
   return (
     <div className="max-w-2xl">
+      {/* Page-level intro note */}
+      <p className="text-sm text-gray-600 mb-6">
+        These instructions help you connect an AI assistant to this tenant&apos;s data through PB MCP.
+      </p>
+
       {/* API key selector — only show if multiple active keys */}
       {activeKeys.length > 1 && (
         <div className="mb-6">
@@ -215,71 +232,198 @@ Replace YOUR_API_KEY with the API key generated for this tenant.`;
         </div>
       )}
 
-      {/* Server URL display */}
+      {/* Client tabs */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">
-          MCP Server URL
-          <Tooltip text="The endpoint your MCP client connects to. This is automatically derived from the dashboard URL." />
-        </h3>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm font-mono text-gray-800 select-all">
-            {serverUrl}
-          </code>
-          <button
-            onClick={() => handleCopy(serverUrl, 'url')}
-            className="shrink-0 border border-gray-300 text-gray-700 text-xs font-medium py-2 px-3 rounded-md hover:bg-gray-50 transition-colors"
-          >
-            {copiedField === 'url' ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
-      </div>
-
-      {/* API key note */}
-      <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">
-          API Key
-          <Tooltip text="A secret token that authenticates your MCP client with this tenant's data. API keys are only shown in full at the moment they are created." />
-        </h3>
-        <p className="text-sm text-gray-500">
-          Replace <code className="bg-gray-100 px-1 rounded text-xs">YOUR_API_KEY</code> in the
-          snippets below with the API key shown when you created it. API keys are only displayed
-          once at creation for security.
-        </p>
-      </div>
-
-      {/* Config snippet tabs */}
-      <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Configuration Snippets</h3>
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          {/* Tab bar */}
-          <div className="flex border-b border-gray-200 bg-gray-50">
-            {snippetLabels.map((s) => (
-              <button
-                key={s.key}
-                onClick={() => setActiveSnippet(s.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  activeSnippet === s.key
-                    ? 'border-blue-600 text-blue-600 bg-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-          {/* Snippet content */}
-          <div className="relative">
-            <pre className="p-4 text-sm font-mono text-gray-800 overflow-x-auto bg-white whitespace-pre">
-              {getCurrentSnippet()}
-            </pre>
+        <div className="flex border-b border-gray-200 mb-6">
+          {snippetLabels.map((s) => (
             <button
-              onClick={() => handleCopy(getCurrentSnippet(), 'snippet')}
-              className="absolute top-2 right-2 border border-gray-300 text-gray-700 text-xs font-medium py-1 px-2 rounded hover:bg-gray-50 bg-white transition-colors"
+              key={s.key}
+              onClick={() => setActiveSnippet(s.key)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                activeSnippet === s.key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
             >
-              {copiedField === 'snippet' ? 'Copied!' : 'Copy'}
+              {s.label}
             </button>
-          </div>
+          ))}
         </div>
+
+        {/* Claude Desktop instructions */}
+        {activeSnippet === 'claude' && (
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">How to connect Claude Desktop to this server</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              MCP (Model Context Protocol) is the standard that lets AI assistants like Claude talk to external
+              data sources. This configuration tells Claude Desktop where your PB MCP server is and how to authenticate.
+            </p>
+
+            <ol className="space-y-6 text-sm text-gray-700">
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 1: Find your Claude Desktop settings file</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span><strong>Mac:</strong> Open Finder &rarr; Go &rarr; Go to Folder &rarr; paste: <code className="bg-gray-100 px-1 rounded text-xs">~/Library/Application Support/Claude/claude_desktop_config.json</code></span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span><strong>Windows:</strong> Press <kbd className="bg-gray-100 border border-gray-300 rounded px-1 text-xs">Win+R</kbd> &rarr; paste: <code className="bg-gray-100 px-1 rounded text-xs">%APPDATA%\Claude\claude_desktop_config.json</code></span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If the file doesn&apos;t exist, create a new file at that path.</span></li>
+                </ul>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 2: Copy the configuration below into your settings file</p>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="relative">
+                    <pre className="p-4 text-sm font-mono text-gray-800 overflow-x-auto bg-gray-50 whitespace-pre">
+                      {getClaudeDesktopConfig()}
+                    </pre>
+                    <button
+                      onClick={() => handleCopy(getClaudeDesktopConfig(), 'snippet')}
+                      className="absolute top-2 right-2 border border-gray-300 text-gray-700 text-xs font-medium py-1 px-2 rounded hover:bg-gray-50 bg-white transition-colors"
+                    >
+                      {copiedField === 'snippet' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 3: Replace YOUR_API_KEY with your actual API key</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Your API key was shown once when you created it on the <strong>Keys</strong> tab.</span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If you&apos;ve lost it, go to the Keys tab, revoke the old key, and create a new one.</span></li>
+                </ul>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 4: Save the file and restart Claude Desktop</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Close Claude Desktop completely (quit from system tray / menu bar).</span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Reopen it — the MCP connection will activate automatically.</span></li>
+                </ul>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 5: Verify the connection works</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>In Claude Desktop, type: <code className="bg-gray-100 px-1 rounded text-xs">"Use the list_products tool"</code></span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If it returns product data, you&apos;re connected!</span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If you see an error, check that the server is running and the API key is correct.</span></li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+        )}
+
+        {/* Cursor instructions */}
+        {activeSnippet === 'cursor' && (
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">How to connect Cursor to this server</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Cursor supports MCP servers through a global config file. This configuration tells Cursor where your
+              PB MCP server is and how to authenticate.
+            </p>
+
+            <ol className="space-y-6 text-sm text-gray-700">
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 1: Find your Cursor MCP settings file</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span><strong>Mac / Linux:</strong> <code className="bg-gray-100 px-1 rounded text-xs">~/.cursor/mcp.json</code></span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span><strong>Windows:</strong> <code className="bg-gray-100 px-1 rounded text-xs">%USERPROFILE%\.cursor\mcp.json</code></span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If the file doesn&apos;t exist, create a new file at that path.</span></li>
+                </ul>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 2: Copy the configuration below into your settings file</p>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="relative">
+                    <pre className="p-4 text-sm font-mono text-gray-800 overflow-x-auto bg-gray-50 whitespace-pre">
+                      {getCursorConfig()}
+                    </pre>
+                    <button
+                      onClick={() => handleCopy(getCursorConfig(), 'snippet')}
+                      className="absolute top-2 right-2 border border-gray-300 text-gray-700 text-xs font-medium py-1 px-2 rounded hover:bg-gray-50 bg-white transition-colors"
+                    >
+                      {copiedField === 'snippet' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 3: Replace YOUR_API_KEY with your actual API key</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Your API key was shown once when you created it on the <strong>Keys</strong> tab.</span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If you&apos;ve lost it, go to the Keys tab, revoke the old key, and create a new one.</span></li>
+                </ul>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 4: Save the file and reload Cursor</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Reload the Cursor window: press <kbd className="bg-gray-100 border border-gray-300 rounded px-1 text-xs">Ctrl+Shift+P</kbd> and run <strong>Reload Window</strong>.</span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>The MCP server will appear in the Cursor MCP panel after reload.</span></li>
+                </ul>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 5: Verify the connection works</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Open the Cursor chat and type: <code className="bg-gray-100 px-1 rounded text-xs">"Use the list_products tool"</code></span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If it returns product data, you&apos;re connected!</span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If you see an error, check that the server is running and the API key is correct.</span></li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+        )}
+
+        {/* Generic instructions */}
+        {activeSnippet === 'generic' && (
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">Connect any MCP-compatible client</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Any MCP-compatible AI client can connect using these details. Consult your AI client&apos;s
+              documentation for where to enter the server URL and authentication header.
+            </p>
+
+            <ol className="space-y-6 text-sm text-gray-700">
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 1: Use the server URL and connection details below</p>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="relative">
+                    <pre className="p-4 text-sm font-mono text-gray-800 overflow-x-auto bg-gray-50 whitespace-pre">
+                      {getGenericConfig()}
+                    </pre>
+                    <button
+                      onClick={() => handleCopy(getGenericConfig(), 'snippet')}
+                      className="absolute top-2 right-2 border border-gray-300 text-gray-700 text-xs font-medium py-1 px-2 rounded hover:bg-gray-50 bg-white transition-colors"
+                    >
+                      {copiedField === 'snippet' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 2: Replace YOUR_API_KEY with your actual API key</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Your API key was shown once when you created it on the <strong>Keys</strong> tab.</span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>If you&apos;ve lost it, go to the Keys tab, revoke the old key, and create a new one.</span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Pass the key as an HTTP header: <code className="bg-gray-100 px-1 rounded text-xs">X-Api-Key: YOUR_API_KEY</code></span></li>
+                </ul>
+              </li>
+
+              <li>
+                <p className="font-medium text-gray-900 mb-2">Step 3: Configure your client</p>
+                <ul className="space-y-1 ml-4 text-gray-600">
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Transport type: <strong>Streamable HTTP</strong></span></li>
+                  <li className="flex gap-2"><span className="text-gray-400 select-none">•</span><span>Consult your AI client&apos;s documentation for where to enter these values.</span></li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+        )}
       </div>
 
       {/* Export PDF button */}
@@ -346,6 +490,15 @@ Replace YOUR_API_KEY with the API key generated for this tenant.`;
   );
 }
 
+/**
+ * API Keys management tab. Lists all API keys for the tenant with their
+ * status, expiry, and creation date. Allows issuing new keys with an optional
+ * label and expiry, revoking active keys, and expanding a row to configure
+ * per-key tool scoping (restricting which MCP tools that key may call).
+ *
+ * @param tenant - Full tenant detail including the current API key list.
+ * @param onRefresh - Callback to reload tenant data after a key mutation.
+ */
 function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () => void }) {
   const [newKeyLabel, setNewKeyLabel] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
@@ -634,6 +787,14 @@ function KeyRow({
   );
 }
 
+/**
+ * Tool permissions tab. Fetches the enabled/disabled state of all MCP tools
+ * for the tenant and renders them grouped by category (Inventory, Orders &
+ * Billing, CRM, Knowledge Base). Changes are staged locally until "Save
+ * Changes" is clicked. "Enable All" and "Disable All" shortcuts are provided.
+ *
+ * @param tenantId - UUID of the tenant whose tool permissions are managed.
+ */
 function ToolsTab({ tenantId }: { tenantId: string }) {
   const [permissions, setPermissions] = useState<ToolPermission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -730,6 +891,14 @@ function ToolsTab({ tenantId }: { tenantId: string }) {
   );
 }
 
+/**
+ * ERP configuration tab. Pre-populates fields from the tenant's stored ERP
+ * credentials and allows updating them. Provides a "Test Connection" button
+ * that verifies the saved credentials via a live API call without requiring
+ * a save first. Credential fields are masked for passwords and secrets.
+ *
+ * @param tenant - Full tenant detail used to pre-populate the ERP fields.
+ */
 function ErpTab({ tenant }: { tenant: TenantDetail }) {
   const tenantId = tenant.id;
   const [config, setConfig] = useState({
@@ -830,6 +999,14 @@ function ErpTab({ tenant }: { tenant: TenantDetail }) {
   );
 }
 
+/**
+ * Audit log tab. Displays a paginated, filterable table of MCP tool calls
+ * made by clients using this tenant's API keys. Each entry shows the tool
+ * name, success/error status, execution duration, and timestamp. Users can
+ * filter by tool name or status, and clear filters with one click.
+ *
+ * @param tenantId - UUID of the tenant whose audit log is displayed.
+ */
 function AuditTab({ tenantId }: { tenantId: string }) {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [totalCount, setTotalCount] = useState(0);

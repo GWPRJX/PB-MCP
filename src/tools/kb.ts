@@ -2,6 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { sql } from '../db/client.js';
 import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
+import { logger } from '../logger.js';
 
 /**
  * Register all 3 KB MCP tools on the provided McpServer instance.
@@ -40,7 +41,7 @@ export function registerKbTools(server: McpServer, filter?: Set<string> | null):
         const nextCursor = offset + items.length < totalCount ? offset + limit : null;
         return toolSuccess({ items, total_count: totalCount, next_cursor: nextCursor });
       } catch (err) {
-        process.stderr.write(`[tools/kb] search_kb error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'search_kb error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     })
@@ -65,7 +66,7 @@ export function registerKbTools(server: McpServer, filter?: Set<string> | null):
         }
         return toolSuccess(rows[0]);
       } catch (err) {
-        process.stderr.write(`[tools/kb] get_kb_article error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'get_kb_article error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     })
@@ -100,7 +101,7 @@ export function registerKbTools(server: McpServer, filter?: Set<string> | null):
           article_count: articleCount,
         });
       } catch (err) {
-        process.stderr.write(`[tools/kb] get_kb_sync_status error: ${err instanceof Error ? err.message : String(err)}\n`);
+        logger.error({ err }, 'get_kb_sync_status error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     })

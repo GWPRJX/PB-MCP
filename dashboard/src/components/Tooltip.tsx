@@ -5,6 +5,15 @@ interface TooltipProps {
   children?: ReactNode;
 }
 
+/**
+ * Inline tooltip component. Wraps `children` (or an info icon when no children
+ * are provided) in a hover group that displays a dark floating tooltip above
+ * the trigger element.
+ *
+ * @param text - The tooltip message to display on hover.
+ * @param children - Optional custom trigger element. Defaults to a small info
+ *   circle icon when omitted.
+ */
 export function Tooltip({ text, children }: TooltipProps) {
   return (
     <span className="relative group inline-flex items-center">

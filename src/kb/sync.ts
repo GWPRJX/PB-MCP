@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import postgres from 'postgres';
 import { sql } from '../db/client.js';
 import { getSettings } from '../admin/settings-service.js';
+import { logger } from '../logger.js';
 
 export interface SyncResult {
   article_count: number;
@@ -31,7 +32,7 @@ export async function syncKbArticles(): Promise<SyncResult> {
   const project = dbSettings.youtrackProject || (process.env.YOUTRACK_PROJECT ?? 'P8');
 
   if (!baseUrl || !token) {
-    process.stderr.write('[kb/sync] WARNING: YouTrack credentials not configured (neither DB nor env vars) -- skipping sync\n');
+    logger.warn('YouTrack credentials not configured (neither DB nor env vars) -- skipping sync');
     return { article_count: 0, synced_at: new Date() };
   }
 
@@ -64,7 +65,7 @@ export async function syncKbArticles(): Promise<SyncResult> {
     skip += pageSize;
   }
 
-  process.stderr.write(`[kb/sync] Fetched ${articles.length} articles from YouTrack project:${project}\n`);
+  logger.info({ count: articles.length, project }, 'Fetched articles from YouTrack');
 
   const syncedAt = new Date();
 
@@ -100,6 +101,6 @@ export async function syncKbArticles(): Promise<SyncResult> {
     }
   });
 
-  process.stderr.write(`[kb/sync] Sync complete: ${articles.length} articles stored\n`);
+  logger.info({ count: articles.length }, 'Sync complete: articles stored');
   return { article_count: articles.length, synced_at: syncedAt };
 }

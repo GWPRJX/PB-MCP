@@ -85,7 +85,7 @@ beforeAll(async () => {
   // Seed kb_articles with 3 test rows via superuser connection.
   // TRUNCATE first to ensure a clean slate for this test run.
   // kb_articles is global (no tenant_id) — safe to truncate in test env.
-  await seedSql`TRUNCATE TABLE kb_articles`;
+  await seedSql`DELETE FROM kb_articles`;
 
   await seedSql`
     INSERT INTO kb_articles (youtrack_id, summary, content, tags, synced_at, content_hash)
@@ -103,7 +103,7 @@ afterAll(async () => {
   if (tenantId) {
     await seedSql`DELETE FROM tenants WHERE id = ${tenantId}`;
   }
-  await seedSql`TRUNCATE TABLE kb_articles`;
+  await seedSql`DELETE FROM kb_articles`;
   await seedSql.end();
   await app.close();
 });
@@ -200,7 +200,7 @@ describe('get_kb_article tool (KB-05)', () => {
 describe('get_kb_sync_status tool (KB-06)', () => {
   it('returns { last_synced_at, article_count } — last_synced_at is null when no articles exist', async () => {
     // Temporarily empty the table to test null last_synced_at
-    await seedSql`TRUNCATE TABLE kb_articles`;
+    await seedSql`DELETE FROM kb_articles`;
     const { data, isError } = await callTool('get_kb_sync_status');
     expect(isError).toBe(false);
     expect(data.article_count).toBe(0);

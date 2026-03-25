@@ -5,7 +5,7 @@ import {
   getEnabledTools,
   updateToolPermissions,
   updateKeyAllowedTools,
-  ALL_TOOLS,
+  getAllToolNames,
 } from '../../src/admin/tool-permissions-service.js';
 import { createApiKey } from '../../src/admin/tenant-service.js';
 
@@ -49,8 +49,9 @@ afterAll(async () => {
 describe('getToolPermissions (TAC-01)', () => {
   it('returns all 27 tools defaulting to enabled', async () => {
     const perms = await getToolPermissions(tenantId);
+    const allTools = await getAllToolNames();
 
-    expect(perms).toHaveLength(ALL_TOOLS.length);
+    expect(perms).toHaveLength(allTools.length);
     expect(perms).toHaveLength(27);
 
     // Every tool should default to enabled when no overrides exist
@@ -60,7 +61,7 @@ describe('getToolPermissions (TAC-01)', () => {
 
     // Verify all known tool names are present
     const names = perms.map((p) => p.toolName);
-    for (const tool of ALL_TOOLS) {
+    for (const tool of allTools) {
       expect(names).toContain(tool);
     }
   });
@@ -77,7 +78,7 @@ describe('updateToolPermissions (TAC-02)', () => {
       { toolName: 'get_product', enabled: false },
     ]);
 
-    expect(result).toHaveLength(21);
+    expect(result).toHaveLength(27);
 
     const listProducts = result.find((p) => p.toolName === 'list_products');
     const getProduct = result.find((p) => p.toolName === 'get_product');
@@ -118,8 +119,8 @@ describe('getEnabledTools (TAC-03)', () => {
     expect(enabled).toContain('list_products'); // re-enabled above
     expect(enabled).toContain('search_kb');
 
-    // Should have 20 tools (21 - 1 disabled)
-    expect(enabled).toHaveLength(20);
+    // Should have 26 tools (27 - 1 disabled)
+    expect(enabled).toHaveLength(26);
   });
 
   it('with key allowedTools returns intersection', async () => {

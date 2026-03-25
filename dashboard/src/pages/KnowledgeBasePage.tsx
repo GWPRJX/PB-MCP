@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Tooltip } from '../components/Tooltip';
+import { useToast } from '../components/ToastProvider';
 import {
   getKbSettings,
   updateKbSettings,
@@ -16,6 +17,12 @@ import {
   type KbDocFull,
 } from '../api';
 
+/**
+ * Knowledge Base management page. Renders three sections:
+ * - {@link YouTrackConfigSection} — YouTrack connection settings and sync interval.
+ * - {@link SyncStatusSection} — Last sync result and a manual "Sync Now" button.
+ * - {@link UploadedDocsSection} — CRUD table for manually uploaded Markdown documents.
+ */
 export function KnowledgeBasePage() {
   return (
     <div>
@@ -45,7 +52,14 @@ export function KnowledgeBasePage() {
   );
 }
 
+/**
+ * Form for configuring the YouTrack integration. Loads current settings on
+ * mount and allows updating the base URL, API token, project ID, and sync
+ * interval. The token field shows a masked hint when a token is already set;
+ * it is only included in the save payload when a new value is entered.
+ */
 function YouTrackConfigSection() {
+  const toast = useToast();
   const [settings, setSettings] = useState<KbSettings>({
     youtrackBaseUrl: '',
     youtrackToken: '',
@@ -86,6 +100,9 @@ function YouTrackConfigSection() {
       await updateKbSettings(payload);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      toast.success('Settings saved');
+    } catch (e) {
+      toast.error('Failed to save settings: ' + (e as Error).message);
     } finally {
       setSaving(false);
     }
@@ -168,7 +185,14 @@ function YouTrackConfigSection() {
   );
 }
 
+/**
+ * Displays the current YouTrack sync status: last sync time, number of
+ * articles synced in the last run, total article count, and any error from
+ * the last attempt. Provides a "Sync Now" button that triggers an immediate
+ * refresh and shows the result inline for 5 seconds before refreshing status.
+ */
 function SyncStatusSection() {
+  const toast = useToast();
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -190,12 +214,14 @@ function SyncStatusSection() {
     try {
       const res = await refreshKb();
       setSyncResult({ ok: true, message: `Synced ${res.article_count} articles` });
+      toast.success(`Synced ${res.article_count} articles`);
       setTimeout(() => {
         setSyncResult(null);
         fetchStatus();
       }, 5000);
     } catch (e) {
       setSyncResult({ ok: false, message: `Failed: ${(e as Error).message}` });
+      toast.error('Sync failed: ' + (e as Error).message);
       setTimeout(() => {
         setSyncResult(null);
         fetchStatus();
@@ -252,7 +278,14 @@ function SyncStatusSection() {
   );
 }
 
+/**
+ * Paginated CRUD interface for manually-uploaded KB documents. Supports
+ * uploading new Markdown documents with a title and optional comma-separated
+ * tags, inline editing of existing documents, and deletion with confirmation.
+ * Pagination is handled client-side in increments of 25 documents.
+ */
 function UploadedDocsSection() {
+  const toast = useToast();
   const [docs, setDocs] = useState<KbDoc[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -294,6 +327,9 @@ function UploadedDocsSection() {
       setShowUpload(false);
       setOffset(0);
       fetchDocs();
+      toast.success('Document uploaded');
+    } catch (e) {
+      toast.error('Upload failed: ' + (e as Error).message);
     } finally {
       setUploading(false);
     }
@@ -319,6 +355,7 @@ function UploadedDocsSection() {
       await updateDoc(editingDoc.id, { title: editTitle.trim(), content: editContent, tags });
       setEditingDoc(null);
       fetchDocs();
+      toast.success('Document updated');
     } finally {
       setSavingEdit(false);
     }
@@ -326,8 +363,13 @@ function UploadedDocsSection() {
 
   const handleDelete = async (docId: string) => {
     if (!confirm('Delete this document? This action cannot be undone.')) return;
-    await deleteDoc(docId);
-    fetchDocs();
+    try {
+      await deleteDoc(docId);
+      fetchDocs();
+      toast.success('Document deleted');
+    } catch (e) {
+      toast.error('Delete failed: ' + (e as Error).message);
+    }
   };
 
   if (loading && docs.length === 0) return <p className="text-gray-500 text-sm">Loading...</p>;

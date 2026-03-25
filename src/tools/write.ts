@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { pbPost } from '../posibolt/client.js';
 import { getErpConfig } from '../context.js';
 import { shouldRegister, withAudit, toolSuccess, toolError } from './errors.js';
+import { logger } from '../logger.js';
 
 /**
  * Convert an ISO date string (YYYY-MM-DD) to POSibolt format (dd-MM-yyyy).
@@ -82,9 +83,7 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
         const result = await pbPost(config, '/stocktransferrequest', body);
         return toolSuccess(result);
       } catch (err) {
-        process.stderr.write(
-          `[tools/write] create_stock_entry error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'create_stock_entry error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -133,9 +132,7 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
         const result = await pbPost(config, '/stocktransfer/completestocktransfer', body);
         return toolSuccess(result);
       } catch (err) {
-        process.stderr.write(
-          `[tools/write] update_stock_entry error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'update_stock_entry error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -238,9 +235,7 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
         const result = await pbPost(config, '/salesinvoice/createorderinvoice', body);
         return toolSuccess(result);
       } catch (err) {
-        process.stderr.write(
-          `[tools/write] create_invoice error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'create_invoice error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -261,9 +256,7 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
         const result = await pbPost(config, '/salesorder/cancelorder', { orderNo: params.orderNo });
         return toolSuccess(result);
       } catch (err) {
-        process.stderr.write(
-          `[tools/write] update_invoice error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'update_invoice error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -317,9 +310,7 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
         const result = await pbPost(config, '/customermaster', body);
         return toolSuccess(result);
       } catch (err) {
-        process.stderr.write(
-          `[tools/write] create_contact error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'create_contact error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),
@@ -377,9 +368,7 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
         const result = await pbPost(config, `/customermaster/${params.customerId}`, body);
         return toolSuccess(result);
       } catch (err) {
-        process.stderr.write(
-          `[tools/write] update_contact error: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+        logger.error({ err }, 'update_contact error');
         return toolError('INTERNAL_ERROR', err instanceof Error ? err.message : 'Unknown error');
       }
     }),

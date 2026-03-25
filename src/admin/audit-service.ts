@@ -1,5 +1,6 @@
 import postgres from 'postgres';
-import { sql } from '../db/client.js';
+import { sql, authSql } from '../db/client.js';
+import { logger } from '../logger.js';
 
 export interface AuditEntry {
   id: string;
@@ -35,7 +36,7 @@ export async function recordToolCall(
       `;
     });
   } catch (err) {
-    process.stderr.write(`[audit] ERROR recording tool call: ${(err as Error).message}\n`);
+    logger.error({ err }, 'Error recording audit log entry');
   }
 }
 
@@ -55,75 +56,69 @@ export async function queryAuditLog(
   const limit = Math.min(opts.limit ?? 50, 200);
   const offset = opts.offset ?? 0;
 
-  const adminSql = postgres(process.env.DATABASE_MIGRATION_URL ?? process.env.DATABASE_URL ?? '', { max: 2 });
+  let rows: AuditEntry[];
+  let countResult: { count: string }[];
 
-  try {
-    let rows: AuditEntry[];
-    let countResult: { count: string }[];
-
-    if (opts.toolName && opts.status) {
-      rows = await adminSql<AuditEntry[]>`
-        SELECT id, tool_name AS "toolName", key_id AS "keyId",
-               params, status, error_message AS "errorMessage",
-               duration_ms AS "durationMs", created_at AS "createdAt"
-        FROM audit_log
-        WHERE tenant_id = ${tenantId} AND tool_name = ${opts.toolName} AND status = ${opts.status}
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      countResult = await adminSql<{ count: string }[]>`
-        SELECT COUNT(*) AS count FROM audit_log
-        WHERE tenant_id = ${tenantId} AND tool_name = ${opts.toolName} AND status = ${opts.status}
-      `;
-    } else if (opts.toolName) {
-      rows = await adminSql<AuditEntry[]>`
-        SELECT id, tool_name AS "toolName", key_id AS "keyId",
-               params, status, error_message AS "errorMessage",
-               duration_ms AS "durationMs", created_at AS "createdAt"
-        FROM audit_log
-        WHERE tenant_id = ${tenantId} AND tool_name = ${opts.toolName}
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      countResult = await adminSql<{ count: string }[]>`
-        SELECT COUNT(*) AS count FROM audit_log
-        WHERE tenant_id = ${tenantId} AND tool_name = ${opts.toolName}
-      `;
-    } else if (opts.status) {
-      rows = await adminSql<AuditEntry[]>`
-        SELECT id, tool_name AS "toolName", key_id AS "keyId",
-               params, status, error_message AS "errorMessage",
-               duration_ms AS "durationMs", created_at AS "createdAt"
-        FROM audit_log
-        WHERE tenant_id = ${tenantId} AND status = ${opts.status}
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      countResult = await adminSql<{ count: string }[]>`
-        SELECT COUNT(*) AS count FROM audit_log
-        WHERE tenant_id = ${tenantId} AND status = ${opts.status}
-      `;
-    } else {
-      rows = await adminSql<AuditEntry[]>`
-        SELECT id, tool_name AS "toolName", key_id AS "keyId",
-               params, status, error_message AS "errorMessage",
-               duration_ms AS "durationMs", created_at AS "createdAt"
-        FROM audit_log
-        WHERE tenant_id = ${tenantId}
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      countResult = await adminSql<{ count: string }[]>`
-        SELECT COUNT(*) AS count FROM audit_log
-        WHERE tenant_id = ${tenantId}
-      `;
-    }
-
-    return {
-      entries: rows,
-      totalCount: parseInt(countResult[0].count, 10),
-    };
-  } finally {
-    await adminSql.end();
+  if (opts.toolName && opts.status) {
+    rows = await authSql<AuditEntry[]>`
+      SELECT id, tool_name AS "toolName", key_id AS "keyId",
+             params, status, error_message AS "errorMessage",
+             duration_ms AS "durationMs", created_at AS "createdAt"
+      FROM audit_log
+      WHERE tenant_id = ${tenantId} AND tool_name = ${opts.toolName} AND status = ${opts.status}
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    countResult = await authSql<{ count: string }[]>`
+      SELECT COUNT(*) AS count FROM audit_log
+      WHERE tenant_id = ${tenantId} AND tool_name = ${opts.toolName} AND status = ${opts.status}
+    `;
+  } else if (opts.toolName) {
+    rows = await authSql<AuditEntry[]>`
+      SELECT id, tool_name AS "toolName", key_id AS "keyId",
+             params, status, error_message AS "errorMessage",
+             duration_ms AS "durationMs", created_at AS "createdAt"
+      FROM audit_log
+      WHERE tenant_id = ${tenantId} AND tool_name = ${opts.toolName}
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    countResult = await authSql<{ count: string }[]>`
+      SELECT COUNT(*) AS count FROM audit_log
+      WHERE tenant_id = ${tenantId} AND tool_name = ${opts.toolName}
+    `;
+  } else if (opts.status) {
+    rows = await authSql<AuditEntry[]>`
+      SELECT id, tool_name AS "toolName", key_id AS "keyId",
+             params, status, error_message AS "errorMessage",
+             duration_ms AS "durationMs", created_at AS "createdAt"
+      FROM audit_log
+      WHERE tenant_id = ${tenantId} AND status = ${opts.status}
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    countResult = await authSql<{ count: string }[]>`
+      SELECT COUNT(*) AS count FROM audit_log
+      WHERE tenant_id = ${tenantId} AND status = ${opts.status}
+    `;
+  } else {
+    rows = await authSql<AuditEntry[]>`
+      SELECT id, tool_name AS "toolName", key_id AS "keyId",
+             params, status, error_message AS "errorMessage",
+             duration_ms AS "durationMs", created_at AS "createdAt"
+      FROM audit_log
+      WHERE tenant_id = ${tenantId}
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    countResult = await authSql<{ count: string }[]>`
+      SELECT COUNT(*) AS count FROM audit_log
+      WHERE tenant_id = ${tenantId}
+    `;
   }
+
+  return {
+    entries: rows,
+    totalCount: parseInt(countResult[0].count, 10),
+  };
 }

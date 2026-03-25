@@ -51,14 +51,14 @@ describe('POST /admin/tenants — create tenant (TENANT-01)', () => {
     expect(apiKey.startsWith('pb_')).toBe(true);
   });
 
-  it('returns 409 Conflict when slug already exists', async () => {
+  it('returns 400 when slug already exists', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/admin/tenants',
       headers: { 'x-admin-secret': ADMIN_SECRET },
       payload: { name: 'Duplicate Corp', slug: `${SLUG_PREFIX}-main`, plan: 'standard' },
     });
-    expect(res.statusCode).toBe(409);
+    expect(res.statusCode).toBe(400);
   });
 
   it('returns 400 when name is missing', async () => {

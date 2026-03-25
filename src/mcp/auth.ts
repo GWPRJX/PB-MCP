@@ -1,9 +1,10 @@
 import { createHash } from 'crypto';
-import postgres from 'postgres';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { lookupApiKeyByHash } from '../admin/tenant-service.js';
 import { getEnabledTools } from '../admin/tool-permissions-service.js';
 import { tenantStorage } from '../context.js';
+import { authSql } from '../db/client.js';
+import { decrypt } from '../crypto.js';
 import type { PosiboltConfig } from '../posibolt/client.js';
 
 /**
@@ -13,41 +14,36 @@ import type { PosiboltConfig } from '../posibolt/client.js';
 async function loadErpConfig(tenantId: string): Promise<PosiboltConfig | null> {
   if (!process.env.DATABASE_MIGRATION_URL) return null;
 
-  const adminSql = postgres(process.env.DATABASE_MIGRATION_URL, { max: 2 });
-  try {
-    const rows = await adminSql<{
-      erp_base_url: string | null;
-      erp_client_id: string | null;
-      erp_app_secret: string | null;
-      erp_username: string | null;
-      erp_password: string | null;
-      erp_terminal: string | null;
-    }[]>`
-      SELECT erp_base_url, erp_client_id, erp_app_secret,
-             erp_username, erp_password, erp_terminal
-      FROM tenants WHERE id = ${tenantId}
-    `;
+  const rows = await authSql<{
+    erp_base_url: string | null;
+    erp_client_id: string | null;
+    erp_app_secret: string | null;
+    erp_username: string | null;
+    erp_password: string | null;
+    erp_terminal: string | null;
+  }[]>`
+    SELECT erp_base_url, erp_client_id, erp_app_secret,
+           erp_username, erp_password, erp_terminal
+    FROM tenants WHERE id = ${tenantId}
+  `;
 
-    if (rows.length === 0) return null;
-    const r = rows[0];
+  if (rows.length === 0) return null;
+  const r = rows[0];
 
-    // All 6 fields must be set for a valid config
-    if (!r.erp_base_url || !r.erp_client_id || !r.erp_app_secret ||
-        !r.erp_username || !r.erp_password || !r.erp_terminal) {
-      return null;
-    }
-
-    return {
-      baseUrl: r.erp_base_url,
-      clientId: r.erp_client_id,
-      appSecret: r.erp_app_secret,
-      username: r.erp_username,
-      password: r.erp_password,
-      terminal: r.erp_terminal,
-    };
-  } finally {
-    await adminSql.end();
+  // All 6 fields must be set for a valid config
+  if (!r.erp_base_url || !r.erp_client_id || !r.erp_app_secret ||
+      !r.erp_username || !r.erp_password || !r.erp_terminal) {
+    return null;
   }
+
+  return {
+    baseUrl: r.erp_base_url,
+    clientId: r.erp_client_id,
+    appSecret: decrypt(r.erp_app_secret),
+    username: r.erp_username,
+    password: decrypt(r.erp_password),
+    terminal: r.erp_terminal,
+  };
 }
 
 /**

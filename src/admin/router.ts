@@ -1,5 +1,15 @@
+/**
+ * Admin API router — tenant provisioning, API key management, tool permissions,
+ * KB settings/sync, and audit log queries.
+ *
+ * All routes in this module are protected by JWT authentication via `jwtAuthHook`.
+ * Mount under the `/admin` prefix (see `src/server.ts`).
+ *
+ * @module admin/router
+ */
 import type { FastifyInstance } from 'fastify';
 import { createHash } from 'crypto';
+import { logger } from '../logger.js';
 import {
   createTenant,
   listTenants,
@@ -14,12 +24,23 @@ import {
   getToolPermissions,
   updateToolPermissions,
   updateKeyAllowedTools,
-  ALL_TOOLS,
+  getAllToolNames,
 } from './tool-permissions-service.js';
+import { getRegisteredTools, registerToolFromDoc } from './tool-registry-service.js';
+import { invalidateToolNameCache } from './tool-permissions-service.js';
 import { queryAuditLog } from './audit-service.js';
 import { jwtAuthHook } from './auth-middleware.js';
 import { sql } from '../db/client.js';
 
+/**
+ * Register all admin API routes on the provided Fastify plugin scope.
+ *
+ * Applies JWT auth to every route via an `onRequest` hook, then registers
+ * endpoints for tenants, API keys, ERP config, tool permissions, KB settings,
+ * KB sync, and audit log queries.
+ *
+ * @param server - Fastify instance to register routes on (scoped plugin).
+ */
 export async function adminRouter(server: FastifyInstance): Promise<void> {
   // Apply JWT/admin-secret auth hook to ALL routes in this plugin scope
   server.addHook('onRequest', jwtAuthHook);
@@ -67,7 +88,13 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
             apiKey: { type: 'string', description: 'Raw API key — shown once, never retrievable' },
           },
         },
-        400: { type: 'object', properties: { error: { type: 'string' } } },
+        400: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            field: { type: 'string' },
+          },
+        },
         409: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
@@ -88,15 +115,19 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
       ? { erpBaseUrl, erpClientId, erpAppSecret, erpUsername, erpPassword, erpTerminal }
       : undefined;
 
+    if (!name || !name.trim()) {
+      return reply.status(400).send({ error: 'Tenant name is required', field: 'name' });
+    }
+
     try {
       const { tenant, rawApiKey } = await createTenant(name, slug, plan, erpConfig);
       return reply.status(201).send({ tenantId: tenant.id, apiKey: rawApiKey });
     } catch (err) {
       const error = err as Error & { code?: string };
       if (error.code === 'DUPLICATE_SLUG') {
-        return reply.status(409).send({ error: `Tenant with slug '${slug}' already exists` });
+        return reply.status(400).send({ error: `A tenant with slug '${slug}' already exists`, field: 'slug' });
       }
-      process.stderr.write(`[admin] ERROR creating tenant: ${error.message}\n`);
+      logger.error({ err: error.message }, 'Error creating tenant');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -525,8 +556,9 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
       return reply.status(404).send({ error: 'Tenant not found' });
     }
 
-    // Validate tool names
-    const validTools = new Set<string>(ALL_TOOLS);
+    // Validate tool names against registry
+    const allToolNames = await getAllToolNames();
+    const validTools = new Set<string>(allToolNames);
     for (const perm of request.body.permissions) {
       if (!validTools.has(perm.toolName)) {
         return reply.status(400).send({ error: `Unknown tool: ${perm.toolName}` });
@@ -573,9 +605,10 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    // Validate tool names if provided
+    // Validate tool names against registry if provided
     if (request.body.allowedTools) {
-      const validTools = new Set<string>(ALL_TOOLS);
+      const allToolNames = await getAllToolNames();
+      const validTools = new Set<string>(allToolNames);
       for (const tool of request.body.allowedTools) {
         if (!validTools.has(tool)) {
           return reply.status(400).send({ error: `Unknown tool: ${tool}` });
@@ -710,21 +743,86 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
   });
 
   // ──────────────────────────────────────────────────────────────
-  // GET /admin/tools — list all available tools
+  // GET /admin/tools — list all tools from the registry
   // ──────────────────────────────────────────────────────────────
   server.get('/tools', {
     schema: {
-      summary: 'List all available MCP tools',
+      summary: 'List all registered MCP tools (builtin + doc-sourced)',
       security: [{ adminSecret: [] }],
       response: {
         200: {
           type: 'array',
-          items: { type: 'string' },
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              toolName: { type: 'string' },
+              displayName: { type: 'string' },
+              description: { type: 'string', nullable: true },
+              category: { type: 'string' },
+              source: { type: 'string' },
+              isActive: { type: 'boolean' },
+            },
+          },
         },
       },
     },
   }, async (_request, reply) => {
-    return reply.status(200).send([...ALL_TOOLS]);
+    const tools = await getRegisteredTools(sql);
+    return reply.status(200).send(tools);
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // POST /admin/tools/register — Register a tool from a KB doc
+  // ──────────────────────────────────────────────────────────────
+  server.post<{
+    Body: {
+      toolName: string;
+      displayName: string;
+      description: string;
+      category: string;
+      source: 'youtrack' | 'uploaded';
+      sourceDocId?: string;
+    };
+  }>('/tools/register', {
+    schema: {
+      summary: 'Register a tool discovered from a KB document',
+      description: 'Adds a doc-sourced tool to the registry. If the tool_name already exists and is not builtin, updates its metadata.',
+      security: [{ adminSecret: [] }],
+      body: {
+        type: 'object',
+        required: ['toolName', 'displayName', 'description', 'category', 'source'],
+        properties: {
+          toolName: { type: 'string', minLength: 1, pattern: '^[a-z][a-z0-9_]*$' },
+          displayName: { type: 'string', minLength: 1 },
+          description: { type: 'string', minLength: 1 },
+          category: { type: 'string', minLength: 1 },
+          source: { type: 'string', enum: ['youtrack', 'uploaded'] },
+          sourceDocId: { type: 'string', format: 'uuid' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { registered: { type: 'boolean' }, toolName: { type: 'string' } } },
+        400: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const { toolName, displayName, description, category, source, sourceDocId } = request.body;
+    try {
+      await registerToolFromDoc(sql, {
+        toolName,
+        displayName,
+        description,
+        category,
+        source,
+        sourceDocId: sourceDocId ?? '',
+      });
+      invalidateToolNameCache();
+      return reply.status(200).send({ registered: true, toolName });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return reply.status(400).send({ error: msg });
+    }
   });
 
   // ──────────────────────────────────────────────────────────────

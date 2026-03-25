@@ -4,6 +4,7 @@ import { pgTable, uuid, text, timestamp, numeric, integer, boolean, date } from 
 // Core tenant infrastructure (Phase 2)
 // ---------------------------------------------------------------------------
 
+/** Tenant table — each row represents one isolated customer with their own ERP credentials and data. */
 export const tenants = pgTable('tenants', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
@@ -20,6 +21,7 @@ export const tenants = pgTable('tenants', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** API keys table — SHA-256 hashed keys that grant MCP tool access scoped to a tenant. */
 export const apiKeys = pgTable('api_keys', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -35,6 +37,7 @@ export const apiKeys = pgTable('api_keys', {
 // ERP domain tables (Phase 3) — mirror Phase 1 SQL migrations exactly
 // ---------------------------------------------------------------------------
 
+/** Products table — ERP product catalogue mirrored from POSibolt, tenant-isolated via RLS. */
 export const products = pgTable('products', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -50,6 +53,7 @@ export const products = pgTable('products', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Stock levels table — per-product warehouse inventory quantities, tenant-isolated. */
 export const stockLevels = pgTable('stock_levels', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -60,6 +64,7 @@ export const stockLevels = pgTable('stock_levels', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Suppliers table — vendor/supplier contact information, tenant-isolated. */
 export const suppliers = pgTable('suppliers', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -72,6 +77,7 @@ export const suppliers = pgTable('suppliers', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Contacts table — CRM business partners (customers/suppliers), tenant-isolated. */
 export const contacts = pgTable('contacts', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -87,6 +93,7 @@ export const contacts = pgTable('contacts', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Orders table — sales orders linked to contacts, tenant-isolated. */
 export const orders = pgTable('orders', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -103,6 +110,7 @@ export const orders = pgTable('orders', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Order line items table — append-only financial records linking orders to products. No updatedAt by design. */
 export const orderLineItems = pgTable('order_line_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -116,6 +124,7 @@ export const orderLineItems = pgTable('order_line_items', {
   // NO updatedAt — order_line_items are append-only financial records (see STATE.md)
 });
 
+/** Invoices table — billing records linked to orders and contacts, tenant-isolated. */
 export const invoices = pgTable('invoices', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -141,6 +150,7 @@ export const invoices = pgTable('invoices', {
 // If no rows exist for a tenant, all tools are enabled (opt-out model).
 // ---------------------------------------------------------------------------
 
+/** Tool permissions table — opt-out access control per tenant. Missing rows = all tools enabled. */
 export const toolPermissions = pgTable('tool_permissions', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -154,6 +164,7 @@ export const toolPermissions = pgTable('tool_permissions', {
 // Audit log (Phase 5) — append-only MCP tool call log
 // ---------------------------------------------------------------------------
 
+/** Audit log table — append-only record of every MCP tool call with timing and error data. */
 export const auditLog = pgTable('audit_log', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -172,6 +183,7 @@ export const auditLog = pgTable('audit_log', {
 // All tenants share this YouTrack documentation cache.
 // ---------------------------------------------------------------------------
 
+/** KB articles cache — GLOBAL (no tenant isolation). Stores YouTrack articles and uploaded docs shared across all tenants. */
 export const kbArticles = pgTable('kb_articles', {
   id: uuid('id').primaryKey().defaultRandom(),
   youtrackId: text('youtrack_id').notNull().unique(),  // idReadable e.g. "P8-A-7"
@@ -187,6 +199,7 @@ export const kbArticles = pgTable('kb_articles', {
 // Stores server-wide config: YouTrack credentials, sync interval, etc.
 // ---------------------------------------------------------------------------
 
+/** Server settings table — GLOBAL key-value store for server-wide config (YouTrack credentials, sync state). */
 export const serverSettings = pgTable('server_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

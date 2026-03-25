@@ -116,9 +116,13 @@ export async function jwtAuthHook(
     if (decoded) return; // Valid JWT — allow request
   }
 
-  // Fall back to X-Admin-Secret header
+  // Fall back to X-Admin-Secret header (timing-safe comparison)
   const adminSecret = request.headers['x-admin-secret'];
-  if (adminSecret && adminSecret === process.env.ADMIN_SECRET) {
+  const expectedSecret = process.env.ADMIN_SECRET;
+  if (adminSecret && expectedSecret &&
+      typeof adminSecret === 'string' &&
+      adminSecret.length === expectedSecret.length &&
+      timingSafeEqual(Buffer.from(adminSecret), Buffer.from(expectedSecret))) {
     return; // Valid admin secret — allow request
   }
 

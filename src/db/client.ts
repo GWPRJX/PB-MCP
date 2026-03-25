@@ -6,7 +6,8 @@ import * as schema from './schema.js';
 // Uses DATABASE_URL which connects as app_login (non-superuser, RLS enforced).
 // Never use DATABASE_MIGRATION_URL here — that URL has DDL privileges.
 if (!process.env.DATABASE_URL) {
-  process.stderr.write('[db] ERROR: DATABASE_URL environment variable is not set\n');
+  // Logger may not be initialized yet at module load time — use stderr directly for this one guard
+  console.error('[db] ERROR: DATABASE_URL environment variable is not set');
   process.exit(1);
 }
 
@@ -17,12 +18,20 @@ export const sql = postgres(process.env.DATABASE_URL, {
   idle_timeout: 20,
   connect_timeout: 10,
   // All postgres.js log output must go to stderr (INFRA-06)
-  onnotice: (notice) => process.stderr.write(`[db] NOTICE: ${notice.message}\n`),
+  onnotice: (notice) => console.error(`[db] NOTICE: ${notice.message}`),
 });
 
-// withTenantContext: wraps any tenant-scoped query in a transaction with SET LOCAL.
-// SET LOCAL (via set_config true) is transaction-scoped — auto-cleared on commit/rollback.
-// This prevents connection pool contamination (see RESEARCH.md Pitfall 2).
+/**
+ * Run a database operation inside a transaction scoped to the given tenant.
+ *
+ * Uses `set_config('app.current_tenant_id', tenantId, true)` (SET LOCAL) so the
+ * tenant ID is automatically cleared on commit or rollback, preventing connection
+ * pool contamination between requests.
+ *
+ * @param tenantId - The tenant UUID to set as the current RLS context.
+ * @param fn - Async callback that receives the transaction SQL handle.
+ * @returns The value returned by `fn`.
+ */
 export async function withTenantContext<T>(
   tenantId: string,
   fn: (tx: postgres.TransactionSql) => Promise<T>
@@ -43,3 +52,7 @@ export async function withTenantContext<T>(
 // Type-safe query builder wrapping the existing postgres.js pool.
 // Use db for SELECT/INSERT/UPDATE queries; use sql directly for raw SQL or set_config calls.
 export const db = drizzle(sql, { schema });
+
+// Singleton superuser pool for admin/auth operations that must bypass RLS.
+// Uses DATABASE_MIGRATION_URL — never use this pool for tenant data operations.
+export const authSql = postgres(process.env.DATABASE_MIGRATION_URL!, { max: 5, idle_timeout: 30 });

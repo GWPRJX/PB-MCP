@@ -5,12 +5,22 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
 import scalarReference from '@scalar/fastify-api-reference';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { adminRouter } from './admin/router.js';
 import { signJwt } from './admin/auth-middleware.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/**
+ * Build and configure the Fastify server instance.
+ *
+ * Registers CORS, OpenAPI/Swagger schema generation, Scalar API reference UI,
+ * the unprotected admin login endpoint, the JWT-protected admin router, and
+ * (when the build exists) static file serving for the dashboard SPA.
+ *
+ * @returns Configured Fastify instance, ready to call `.listen()` on.
+ */
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({
     // logger: false — all logging via process.stderr.write(), not Fastify's built-in logger
@@ -18,11 +28,22 @@ export async function buildServer(): Promise<FastifyInstance> {
     logger: false,
   });
 
-  // CORS for dev mode (Vite dev server on port 5173)
+  // CORS — restrict to dashboard origin in production, allow local dev servers otherwise
+  const corsOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.DASHBOARD_ORIGIN].filter(Boolean) as string[]
+    : ['http://localhost:5173', 'http://localhost:3001'];
+
   await server.register(cors, {
-    origin: ['http://localhost:5173'],
+    origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'X-Admin-Secret', 'X-Api-Key', 'Authorization'],
+  });
+
+  // Rate limiting — 100 req/min globally, keyed by API key or IP
+  await server.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => req.headers['x-api-key'] as string || req.ip,
   });
 
   // Register OpenAPI schema generation
@@ -57,6 +78,7 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // POST /admin/auth/login — unprotected login endpoint (outside admin plugin scope)
   server.post<{ Body: { username: string; password: string } }>('/admin/auth/login', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     schema: {
       summary: 'Authenticate admin and get JWT',
       body: {

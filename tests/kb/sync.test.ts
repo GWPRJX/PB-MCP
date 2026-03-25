@@ -1,6 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import postgres from 'postgres';
 
+// Mock the structured pino logger so tests don't write to stderr
+// and can assert on log calls.
+const mockLogger = {
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+  fatal: vi.fn(),
+  trace: vi.fn(),
+  child: vi.fn().mockReturnThis(),
+};
+
+vi.mock('../../src/logger.js', () => ({
+  logger: mockLogger,
+}));
+
 const cleanSql = postgres(process.env.DATABASE_MIGRATION_URL ?? 'postgres://postgres:postgres@localhost:5432/pb_mcp');
 
 function mockYouTrackFetch(articles: Array<{ idReadable: string; summary: string; content?: string; tags?: Array<{ name: string }> }>) {
@@ -14,12 +30,15 @@ function mockYouTrackFetch(articles: Array<{ idReadable: string; summary: string
 
 beforeEach(async () => {
   vi.resetModules();
-  await cleanSql`TRUNCATE TABLE kb_articles`;
+  mockLogger.info.mockClear();
+  mockLogger.warn.mockClear();
+  mockLogger.error.mockClear();
+  await cleanSql`DELETE FROM kb_articles`;
 });
 
 afterEach(async () => {
   vi.unstubAllGlobals();
-  await cleanSql`TRUNCATE TABLE kb_articles`;
+  await cleanSql`DELETE FROM kb_articles`;
 });
 
 afterAll(async () => {
@@ -79,6 +98,9 @@ describe('syncKbArticles()', () => {
     const result = await syncKbArticles();
 
     expect(result.article_count).toBe(0);
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('YouTrack credentials not configured'),
+    );
     const [{ count }] = await cleanSql`SELECT COUNT(*) AS count FROM kb_articles` as [{ count: string }];
     expect(parseInt(count, 10)).toBe(0);
 

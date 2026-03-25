@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/admin': 'http://localhost:3000',
+      '/admin': 'http://localhost:3001',
     },
   },
   build: {

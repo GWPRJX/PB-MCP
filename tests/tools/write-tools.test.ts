@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerWriteTools } from '../../src/tools/write.js';
-import { ALL_TOOLS } from '../../src/admin/tool-permissions-service.js';
 import { createMcpServer } from '../../src/mcp/server.js';
 
 // All 6 write tool names
@@ -13,21 +12,6 @@ const WRITE_TOOLS = [
   'create_contact',
   'update_contact',
 ] as const;
-
-// ---------------------------------------------------------------------------
-// ALL_TOOLS inclusion tests
-// ---------------------------------------------------------------------------
-describe('write tools in ALL_TOOLS', () => {
-  it('ALL_TOOLS includes all 6 write tools', () => {
-    for (const tool of WRITE_TOOLS) {
-      expect(ALL_TOOLS).toContain(tool);
-    }
-  });
-
-  it('ALL_TOOLS has 27 total tools (21 read + 6 write)', () => {
-    expect(ALL_TOOLS).toHaveLength(27);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // registerWriteTools — registration + filtering

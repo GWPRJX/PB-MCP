@@ -1,4 +1,5 @@
-import postgres from 'postgres';
+import { authSql } from '../db/client.js';
+import { decrypt } from '../crypto.js';
 import { getToken, type PosiboltConfig } from '../posibolt/client.js';
 
 /**
@@ -52,10 +53,8 @@ export async function testErpConnection(
     return { connected: false, message: 'DATABASE_MIGRATION_URL not configured' };
   }
 
-  const adminSql = postgres(process.env.DATABASE_MIGRATION_URL, { max: 2 });
-
   try {
-    const rows = await adminSql<{
+    const rows = await authSql<{
       erp_base_url: string | null;
       erp_client_id: string | null;
       erp_app_secret: string | null;
@@ -81,9 +80,9 @@ export async function testErpConnection(
     const config: PosiboltConfig = {
       baseUrl: r.erp_base_url,
       clientId: r.erp_client_id,
-      appSecret: r.erp_app_secret,
+      appSecret: decrypt(r.erp_app_secret),
       username: r.erp_username,
-      password: r.erp_password,
+      password: decrypt(r.erp_password),
       terminal: r.erp_terminal,
     };
 
@@ -92,7 +91,5 @@ export async function testErpConnection(
     return { connected: true, message: 'Successfully authenticated with POSibolt API' };
   } catch (err) {
     return { connected: false, message: `Connection failed: ${(err as Error).message}` };
-  } finally {
-    await adminSql.end();
   }
 }

@@ -2,6 +2,7 @@ import postgres from 'postgres';
 import { readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from '../logger.js';
 
 /**
  * checkPendingMigrations: startup migration alert.
@@ -23,13 +24,13 @@ export async function checkPendingMigrations(): Promise<void> {
     const files = await readdir(migrationsDir);
     expectedCount = files.filter((f) => f.endsWith('.up.sql')).length;
   } catch {
-    process.stderr.write('[startup] WARNING: Cannot read db/migrations directory\n');
+    logger.warn('Cannot read db/migrations directory');
     return;
   }
 
   const migrationUrl = process.env.DATABASE_MIGRATION_URL ?? process.env.DATABASE_URL;
   if (!migrationUrl) {
-    process.stderr.write('[startup] WARNING: No database URL available for migration check\n');
+    logger.warn('No database URL available for migration check');
     return;
   }
 
@@ -42,15 +43,15 @@ export async function checkPendingMigrations(): Promise<void> {
     `;
     const appliedVersion = result[0]?.version ?? 0;
     if (appliedVersion < expectedCount) {
-      process.stderr.write(
-        `[startup] WARNING: ${expectedCount - appliedVersion} pending migration(s) detected. ` +
-          `Applied: ${appliedVersion}, Expected: ${expectedCount}. Run npm run migrate:up\n`
+      logger.warn(
+        { pending: expectedCount - appliedVersion, appliedVersion, expectedCount },
+        'Pending migrations detected. Run npm run migrate:up',
       );
     } else {
-      process.stderr.write(`[startup] Migrations up to date (version ${appliedVersion})\n`);
+      logger.info({ appliedVersion }, 'Migrations up to date');
     }
   } catch {
-    process.stderr.write('[startup] WARNING: schema_migrations table not found. Run npm run migrate:up\n');
+    logger.warn('schema_migrations table not found. Run npm run migrate:up');
   } finally {
     await sql.end();
   }

@@ -1,5 +1,14 @@
 import { useState } from 'react';
 
+/**
+ * Full-page login form. Collects username and password, delegates
+ * authentication to `onLogin`, and surfaces loading/error states.
+ * The username field defaults to "admin" for convenience.
+ *
+ * @param onLogin - Async callback that performs the login request. Should
+ *   resolve on success or throw an `Error` with a user-facing message on
+ *   failure (e.g. invalid credentials).
+ */
 export function LoginPage({ onLogin }: { onLogin: (username: string, password: string) => Promise<void> }) {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');

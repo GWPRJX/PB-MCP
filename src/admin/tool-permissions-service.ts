@@ -1,21 +1,31 @@
 import postgres from 'postgres';
 import { sql } from '../db/client.js';
+import { getActiveToolNames } from './tool-registry-service.js';
+import { logger } from '../logger.js';
 
-// All 27 MCP tools (21 read + 6 write)
-export const ALL_TOOLS = [
-  'list_products', 'get_product', 'list_stock_levels', 'get_stock_level',
-  'list_low_stock', 'list_suppliers', 'get_supplier',
-  'list_orders', 'get_order', 'list_invoices', 'get_invoice',
-  'list_overdue_invoices', 'get_payment_summary',
-  'list_contacts', 'get_contact', 'search_contacts',
-  'get_contact_orders', 'get_contact_invoices',
-  'search_kb', 'get_kb_article', 'get_kb_sync_status',
-  'create_stock_entry', 'update_stock_entry',
-  'create_invoice', 'update_invoice',
-  'create_contact', 'update_contact',
-] as const;
+/** Cached list of active tool names from the registry. Refreshed on startup and on cache miss. */
+let cachedToolNames: string[] | null = null;
 
-export type ToolName = typeof ALL_TOOLS[number];
+/**
+ * Get all active tool names from the registry (with in-memory cache).
+ * Falls back to an empty array if the registry query fails.
+ */
+export async function getAllToolNames(): Promise<string[]> {
+  if (cachedToolNames && cachedToolNames.length > 0) return cachedToolNames;
+  try {
+    const names = await getActiveToolNames(sql);
+    if (names.length > 0) cachedToolNames = names;
+    return names;
+  } catch (err) {
+    logger.error({ err }, 'Failed to fetch active tool names from registry');
+    return [];
+  }
+}
+
+/** Invalidate the cached tool names (call after registry changes). */
+export function invalidateToolNameCache(): void {
+  cachedToolNames = null;
+}
 
 export interface ToolPermission {
   toolName: string;
@@ -38,8 +48,9 @@ export async function getToolPermissions(tenantId: string): Promise<ToolPermissi
   });
 
   const overrides = new Map(rows.map((r) => [r.tool_name, r.enabled]));
+  const allTools = await getAllToolNames();
 
-  return ALL_TOOLS.map((toolName) => ({
+  return allTools.map((toolName) => ({
     toolName,
     enabled: overrides.get(toolName) ?? true,
   }));

@@ -2,6 +2,16 @@ import { Link, useLocation } from 'react-router-dom';
 import { clearToken } from '../api';
 import type { ReactNode } from 'react';
 
+/**
+ * Application shell component. Renders the top navigation bar with links to
+ * Tenants and Knowledge Base sections, a Logout button, and a centred content
+ * area for `children`. Active nav links are highlighted based on the current
+ * route.
+ *
+ * @param children - Page content to render inside the main area.
+ * @param onLogout - Callback invoked when the user clicks the Logout button.
+ *   Should clear auth state in the parent component.
+ */
 export function Layout({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
   const location = useLocation();
 
@@ -23,6 +33,12 @@ export function Layout({ children, onLogout }: { children: ReactNode; onLogout: 
             className={`text-sm ${location.pathname.startsWith('/kb') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             Knowledge Base
+          </Link>
+          <Link
+            to="/setup"
+            className={`text-sm ${location.pathname.startsWith('/setup') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Setup
           </Link>
         </div>
         <button

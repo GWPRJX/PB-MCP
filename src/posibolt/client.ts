@@ -8,8 +8,35 @@
  * Tokens auto-refresh when within 60s of expiry.
  */
 
+import { logger } from '../logger.js';
+
+/** Returns true for errors that are safe to retry (transient network/server issues). */
+function isTransient(err: unknown): boolean {
+  if (err instanceof Error) {
+    const msg = err.message;
+    if (/ECONNRESET|ETIMEDOUT|ECONNREFUSED|UND_ERR_SOCKET|fetch failed/i.test(msg)) return true;
+    if (/\b(502|503|504)\b/.test(msg)) return true;
+  }
+  return false;
+}
+
+/** Retry wrapper with exponential backoff for transient errors. */
+async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 2): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxRetries || !isTransient(err)) throw err;
+      const delayMs = 1000 * Math.pow(2, attempt);
+      logger.warn({ attempt: attempt + 1, maxRetries, delayMs, error: (err as Error).message }, `${label} transient error, retrying`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
 export interface PosiboltConfig {
-  baseUrl: string;      // e.g. https://bigblue.posibolt.com
+  baseUrl: string;      // e.g. https://your-instance.posibolt.com
   clientId: string;     // OAuth client_id
   appSecret: string;    // OAuth app_secret
   username: string;     // POSibolt login username
@@ -24,6 +51,15 @@ interface CachedToken {
 
 const tokenCache = new Map<string, CachedToken>();
 
+/**
+ * Derive a token cache key from a POSibolt config.
+ *
+ * Combines `baseUrl` and `username` so each unique tenant+user pair
+ * maintains its own cached token.
+ *
+ * @param config - POSibolt connection config.
+ * @returns Cache key string in the form `"<baseUrl>|<username>"`.
+ */
 function cacheKey(config: PosiboltConfig): string {
   return `${config.baseUrl}|${config.username}`;
 }
@@ -84,7 +120,7 @@ export async function pbGet<T = unknown>(
   path: string,
   params?: Record<string, string | number | boolean>,
 ): Promise<T> {
-  const token = await getToken(config);
+  let token = await getToken(config);
   const url = new URL(`${config.baseUrl}/AdempiereService/PosiboltRest${path}`);
 
   if (params) {
@@ -95,20 +131,37 @@ export async function pbGet<T = unknown>(
     }
   }
 
-  const res = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    },
-  });
+  return withRetry(async () => {
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`POSibolt GET ${path} failed (${res.status}): ${text}`);
-  }
+    if (res.status === 401) {
+      // Token expired server-side — invalidate cache and retry with fresh token
+      invalidateToken(config);
+      token = await getToken(config);
+      const retryRes = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      });
+      if (!retryRes.ok) {
+        const text = await retryRes.text();
+        throw new Error(`POSibolt GET ${path} failed (${retryRes.status}): ${text}`);
+      }
+      return retryRes.json() as Promise<T>;
+    }
 
-  return res.json() as Promise<T>;
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`POSibolt GET ${path} failed (${res.status}): ${text}`);
+    }
+
+    return res.json() as Promise<T>;
+  }, `pbGet(${path})`);
 }
 
 /**
@@ -119,25 +172,43 @@ export async function pbPost<T = unknown>(
   path: string,
   body: unknown,
 ): Promise<T> {
-  const token = await getToken(config);
+  let token = await getToken(config);
   const url = `${config.baseUrl}/AdempiereService/PosiboltRest${path}`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  return withRetry(async () => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`POSibolt POST ${path} failed (${res.status}): ${text}`);
-  }
+    if (res.status === 401) {
+      // Token expired server-side — invalidate cache and retry with fresh token
+      invalidateToken(config);
+      token = await getToken(config);
+      const retryRes = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!retryRes.ok) {
+        const text = await retryRes.text();
+        throw new Error(`POSibolt POST ${path} failed (${retryRes.status}): ${text}`);
+      }
+      return retryRes.json() as Promise<T>;
+    }
 
-  return res.json() as Promise<T>;
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`POSibolt POST ${path} failed (${res.status}): ${text}`);
+    }
+
+    return res.json() as Promise<T>;
+  }, `pbPost(${path})`);
 }
 
 /**

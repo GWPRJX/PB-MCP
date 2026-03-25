@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from 'crypto';
 import postgres from 'postgres';
-import { db } from '../db/client.js';
-import { sql } from '../db/client.js';
+import { db, sql, authSql } from '../db/client.js';
 import { tenants, apiKeys } from '../db/schema.js';
+import { encrypt } from '../crypto.js';
+import { logger } from '../logger.js';
 
 // ─────────────────────────────────────────────────────────────────
 // Key generation
@@ -90,7 +91,7 @@ export async function createTenant(
     const txSql = tx as unknown as postgres.Sql;
     const inserted = await txSql<TenantRow[]>`
       INSERT INTO tenants (name, slug, plan, erp_base_url, erp_client_id, erp_app_secret, erp_username, erp_password, erp_terminal)
-      VALUES (${name}, ${slug}, ${plan}, ${erpConfig?.erpBaseUrl ?? null}, ${erpConfig?.erpClientId ?? null}, ${erpConfig?.erpAppSecret ?? null}, ${erpConfig?.erpUsername ?? null}, ${erpConfig?.erpPassword ?? null}, ${erpConfig?.erpTerminal ?? null})
+      VALUES (${name}, ${slug}, ${plan}, ${erpConfig?.erpBaseUrl ?? null}, ${erpConfig?.erpClientId ?? null}, ${erpConfig?.erpAppSecret != null ? encrypt(erpConfig.erpAppSecret) : null}, ${erpConfig?.erpUsername ?? null}, ${erpConfig?.erpPassword != null ? encrypt(erpConfig.erpPassword) : null}, ${erpConfig?.erpTerminal ?? null})
       RETURNING id, name, slug, plan, status, created_at AS "createdAt", updated_at AS "updatedAt"
     `;
 
@@ -128,28 +129,22 @@ export async function createTenant(
  * wrong for admin-level aggregate queries across all tenants).
  */
 export async function listTenants(): Promise<TenantListItem[]> {
-  const adminSql = postgres(process.env.DATABASE_MIGRATION_URL ?? process.env.DATABASE_URL ?? '', { max: 2 });
+  const rows = await authSql<(TenantRow & { keyCount: string })[]>`
+    SELECT
+      t.id, t.name, t.slug, t.plan, t.status,
+      t.created_at AS "createdAt",
+      t.updated_at AS "updatedAt",
+      COUNT(k.id) FILTER (WHERE k.status = 'active') AS "keyCount"
+    FROM tenants t
+    LEFT JOIN api_keys k ON k.tenant_id = t.id
+    GROUP BY t.id
+    ORDER BY t.created_at DESC
+  `;
 
-  try {
-    const rows = await adminSql<(TenantRow & { keyCount: string })[]>`
-      SELECT
-        t.id, t.name, t.slug, t.plan, t.status,
-        t.created_at AS "createdAt",
-        t.updated_at AS "updatedAt",
-        COUNT(k.id) FILTER (WHERE k.status = 'active') AS "keyCount"
-      FROM tenants t
-      LEFT JOIN api_keys k ON k.tenant_id = t.id
-      GROUP BY t.id
-      ORDER BY t.created_at DESC
-    `;
-
-    return rows.map((r) => ({
-      ...r,
-      keyCount: Number(r.keyCount),
-    }));
-  } finally {
-    await adminSql.end();
-  }
+  return rows.map((r) => ({
+    ...r,
+    keyCount: Number(r.keyCount),
+  }));
 }
 
 /**
@@ -159,7 +154,7 @@ export async function listTenants(): Promise<TenantListItem[]> {
  */
 export async function getTenant(
   id: string
-): Promise<(TenantRow & { apiKeys: ApiKeyRow[] }) | null> {
+): Promise<(TenantRow & { apiKeys: ApiKeyRow[]; erpBaseUrl: string | null; erpClientId: string | null; erpAppSecret: string | null; erpUsername: string | null; erpPassword: string | null; erpTerminal: string | null }) | null> {
   const tenantRows = await sql<(TenantRow & {
     erpBaseUrl: string | null;
     erpClientId: string | null;
@@ -194,7 +189,14 @@ export async function getTenant(
     `;
   });
 
-  return { ...tenantRows[0], apiKeys: keyRowsAdmin };
+  const tenant = tenantRows[0];
+  return {
+    ...tenant,
+    // Mask encrypted fields — admin only needs to know if configured, not the values
+    erpAppSecret: tenant.erpAppSecret ? '********' : null,
+    erpPassword: tenant.erpPassword ? '********' : null,
+    apiKeys: keyRowsAdmin,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -262,9 +264,9 @@ export async function updateTenantErpConfig(
     UPDATE tenants SET
       erp_base_url = COALESCE(${config.erpBaseUrl ?? null}, erp_base_url),
       erp_client_id = COALESCE(${config.erpClientId ?? null}, erp_client_id),
-      erp_app_secret = COALESCE(${config.erpAppSecret ?? null}, erp_app_secret),
+      erp_app_secret = COALESCE(${config.erpAppSecret != null ? encrypt(config.erpAppSecret) : null}, erp_app_secret),
       erp_username = COALESCE(${config.erpUsername ?? null}, erp_username),
-      erp_password = COALESCE(${config.erpPassword ?? null}, erp_password),
+      erp_password = COALESCE(${config.erpPassword != null ? encrypt(config.erpPassword) : null}, erp_password),
       erp_terminal = COALESCE(${config.erpTerminal ?? null}, erp_terminal),
       updated_at = now()
     WHERE id = ${tenantId}
@@ -290,35 +292,29 @@ export async function lookupApiKeyByHash(
   // Auth lookups use DATABASE_MIGRATION_URL (superuser, no RLS) for key resolution.
   // This pool is used ONLY for this read-only lookup — not for any tenant data operations.
   if (!process.env.DATABASE_MIGRATION_URL) {
-    process.stderr.write('[tenant-service] ERROR: DATABASE_MIGRATION_URL required for API key auth lookups\n');
+    logger.error('DATABASE_MIGRATION_URL required for API key auth lookups');
     return null;
   }
 
-  const authSql = postgres(process.env.DATABASE_MIGRATION_URL, { max: 2 });
+  const rows = await authSql<{ keyId: string; tenantId: string; status: string; allowedTools: string[] | null; expiresAt: string | null }[]>`
+    SELECT id AS "keyId", tenant_id AS "tenantId", status, allowed_tools AS "allowedTools",
+           expires_at AS "expiresAt"
+    FROM api_keys
+    WHERE key_hash = ${hash}
+    LIMIT 1
+  `;
 
-  try {
-    const rows = await authSql<{ keyId: string; tenantId: string; status: string; allowedTools: string[] | null; expiresAt: string | null }[]>`
-      SELECT id AS "keyId", tenant_id AS "tenantId", status, allowed_tools AS "allowedTools",
-             expires_at AS "expiresAt"
-      FROM api_keys
-      WHERE key_hash = ${hash}
-      LIMIT 1
-    `;
+  if (rows.length === 0) return null;
 
-    if (rows.length === 0) return null;
+  const row = rows[0];
+  if (row.status === 'revoked') return null;
 
-    const row = rows[0];
-    if (row.status === 'revoked') return null;
-
-    // Check expiry — NULL expires_at means never expires
-    if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
-      return { expired: true as const };
-    }
-
-    return { tenantId: row.tenantId, keyId: row.keyId, status: row.status, allowedTools: row.allowedTools };
-  } finally {
-    await authSql.end();
+  // Check expiry — NULL expires_at means never expires
+  if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
+    return { expired: true as const };
   }
+
+  return { tenantId: row.tenantId, keyId: row.keyId, status: row.status, allowedTools: row.allowedTools };
 }
 
 // Suppress unused import warning — db is exported for use by Wave 3 (admin router)

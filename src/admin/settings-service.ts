@@ -24,6 +24,15 @@ const SETTINGS_KEYS = {
   lastSyncError: 'kb_last_sync_error',
 } as const;
 
+/**
+ * Retrieve the current KB (YouTrack) settings from the database.
+ *
+ * Reads `youtrack_base_url`, `youtrack_token`, `youtrack_project`, and
+ * `kb_sync_interval_ms` from `server_settings`. Missing keys fall back to
+ * `null` or the default interval of 1 800 000 ms (30 minutes).
+ *
+ * @returns Resolved KB settings object.
+ */
 export async function getSettings(): Promise<KbSettings> {
   const rows = await sql`
     SELECT key, value FROM server_settings
@@ -43,6 +52,14 @@ export async function getSettings(): Promise<KbSettings> {
   };
 }
 
+/**
+ * Persist one or more KB settings to the database using upsert.
+ *
+ * Only the keys present in `settings` are written; omitted keys are left
+ * unchanged. Null values clear the stored string to an empty string.
+ *
+ * @param settings - Partial KB settings to update.
+ */
 export async function updateSettings(settings: Partial<Omit<KbSettings, 'syncIntervalMs'> & { syncIntervalMs?: number }>): Promise<void> {
   const entries: [string, string][] = [];
   if (settings.youtrackBaseUrl !== undefined) entries.push([SETTINGS_KEYS.youtrackBaseUrl, settings.youtrackBaseUrl ?? '']);
@@ -61,6 +78,15 @@ export async function updateSettings(settings: Partial<Omit<KbSettings, 'syncInt
   }
 }
 
+/**
+ * Retrieve the current KB sync status from the database.
+ *
+ * Returns the timestamp and article count from the last sync run, any error
+ * message from the last run, and the total count of articles currently stored
+ * in `kb_articles`.
+ *
+ * @returns Resolved sync status object.
+ */
 export async function getSyncStatus(): Promise<SyncStatus> {
   const settingsRows = await sql`
     SELECT key, value FROM server_settings
@@ -82,6 +108,14 @@ export async function getSyncStatus(): Promise<SyncStatus> {
   };
 }
 
+/**
+ * Persist the outcome of a KB sync run to the database.
+ *
+ * Upserts `kb_last_sync_at`, `kb_last_sync_article_count`, and
+ * `kb_last_sync_error`. An empty string is stored when no error occurred.
+ *
+ * @param result - Sync result containing the timestamp, article count, and optional error message.
+ */
 export async function updateSyncStatus(result: { syncedAt: string; articleCount: number; error?: string }): Promise<void> {
   const entries: [string, string][] = [
     [SETTINGS_KEYS.lastSyncAt, result.syncedAt],
