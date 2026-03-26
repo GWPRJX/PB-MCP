@@ -113,6 +113,21 @@ export async function getActiveToolNames(sql: postgres.Sql): Promise<string[]> {
 }
 
 /**
+ * Toggles the is_active flag for a tool in the registry.
+ * Returns the new active state, or null if the tool was not found.
+ */
+export async function toggleToolActive(sql: postgres.Sql, toolName: string): Promise<boolean | null> {
+  const rows = await sql`
+    UPDATE tool_registry
+    SET is_active = NOT is_active, updated_at = now()
+    WHERE tool_name = ${toolName}
+    RETURNING is_active
+  `;
+  if (rows.length === 0) return null;
+  return rows[0].is_active;
+}
+
+/**
  * Registers a tool discovered from a KB document.
  * If the tool_name already exists, updates description and source metadata.
  */

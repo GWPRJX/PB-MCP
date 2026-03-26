@@ -4,6 +4,7 @@ import { getErpConfig, getTenantId } from '../context.js';
 import { logger } from '../logger.js';
 import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
+import { getToolEndpoint } from './config.js';
 
 /* ------------------------------------------------------------------ */
 /*  BP list TTL cache (5 minutes per tenant)                          */
@@ -25,7 +26,8 @@ async function getBpList(config: Parameters<typeof pbGet>[0]): Promise<BpListIte
     logger.debug({ tenantId, count: cached.data.length }, 'BP list cache hit');
     return cached.data;
   }
-  const data = await pbGet<BpListItem[]>(config, '/customermaster/allbplist');
+  const endpoint = await getToolEndpoint('list_contacts', '/customermaster/allbplist');
+  const data = await pbGet<BpListItem[]>(config, endpoint);
   bpCache.set(tenantId, { data, expiry: Date.now() + BP_CACHE_TTL_MS });
   logger.info({ tenantId, count: data.length }, 'BP list fetched and cached');
   return data;
@@ -129,7 +131,8 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
     withAudit('get_contact', async ({ customerId }) => {
       try {
         const config = getErpConfig();
-        const detail = await pbGet<BpDetail>(config, `/customermaster/${customerId}`);
+        const endpoint = await getToolEndpoint('get_contact', `/customermaster/${customerId}`);
+        const detail = await pbGet<BpDetail>(config, endpoint);
         if (!detail) {
           return toolError('NOT_FOUND', `Customer ${customerId} not found`);
         }
@@ -200,9 +203,10 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
     withAudit('get_contact_orders', async ({ customerId, limit = 50, offset = 0 }) => {
       try {
         const config = getErpConfig();
+        const endpoint = await getToolEndpoint('get_contact_orders', `/salesorder/pendingcustomerorders/${customerId}`);
         const orders = await pbGet<PendingOrder[]>(
           config,
-          `/salesorder/pendingcustomerorders/${customerId}`,
+          endpoint,
         );
         const list = Array.isArray(orders) ? orders : [];
 
@@ -236,9 +240,10 @@ export function registerCrmTools(server: McpServer, filter?: Set<string> | null)
     withAudit('get_contact_invoices', async ({ customerId, limit = 50, offset = 0 }) => {
       try {
         const config = getErpConfig();
+        const endpoint = await getToolEndpoint('get_contact_invoices', '/customermaster/getCustomerOpenInvoices');
         const invoices = await pbGet<OpenInvoice[]>(
           config,
-          '/customermaster/getCustomerOpenInvoices',
+          endpoint,
           { customerId },
         );
         const list = Array.isArray(invoices) ? invoices : [];

@@ -4,6 +4,7 @@ export interface KbSettings {
   youtrackBaseUrl: string | null;
   youtrackToken: string | null;
   youtrackProject: string | null;
+  youtrackQuery: string | null;
   syncIntervalMs: number;
 }
 
@@ -18,6 +19,7 @@ const SETTINGS_KEYS = {
   youtrackBaseUrl: 'youtrack_base_url',
   youtrackToken: 'youtrack_token',
   youtrackProject: 'youtrack_project',
+  youtrackQuery: 'youtrack_query',
   syncIntervalMs: 'kb_sync_interval_ms',
   lastSyncAt: 'kb_last_sync_at',
   lastSyncArticleCount: 'kb_last_sync_article_count',
@@ -40,6 +42,7 @@ export async function getSettings(): Promise<KbSettings> {
       ${SETTINGS_KEYS.youtrackBaseUrl},
       ${SETTINGS_KEYS.youtrackToken},
       ${SETTINGS_KEYS.youtrackProject},
+      ${SETTINGS_KEYS.youtrackQuery},
       ${SETTINGS_KEYS.syncIntervalMs}
     )
   `;
@@ -48,6 +51,7 @@ export async function getSettings(): Promise<KbSettings> {
     youtrackBaseUrl: map.get(SETTINGS_KEYS.youtrackBaseUrl) ?? null,
     youtrackToken: map.get(SETTINGS_KEYS.youtrackToken) ?? null,
     youtrackProject: map.get(SETTINGS_KEYS.youtrackProject) ?? null,
+    youtrackQuery: map.get(SETTINGS_KEYS.youtrackQuery) ?? null,
     syncIntervalMs: parseInt(map.get(SETTINGS_KEYS.syncIntervalMs) ?? '1800000', 10),
   };
 }
@@ -65,6 +69,7 @@ export async function updateSettings(settings: Partial<Omit<KbSettings, 'syncInt
   if (settings.youtrackBaseUrl !== undefined) entries.push([SETTINGS_KEYS.youtrackBaseUrl, settings.youtrackBaseUrl ?? '']);
   if (settings.youtrackToken !== undefined) entries.push([SETTINGS_KEYS.youtrackToken, settings.youtrackToken ?? '']);
   if (settings.youtrackProject !== undefined) entries.push([SETTINGS_KEYS.youtrackProject, settings.youtrackProject ?? '']);
+  if (settings.youtrackQuery !== undefined) entries.push([SETTINGS_KEYS.youtrackQuery, settings.youtrackQuery ?? '']);
   if (settings.syncIntervalMs !== undefined) entries.push([SETTINGS_KEYS.syncIntervalMs, String(settings.syncIntervalMs)]);
 
   if (entries.length === 0) return;

@@ -26,11 +26,12 @@ import {
   updateKeyAllowedTools,
   getAllToolNames,
 } from './tool-permissions-service.js';
-import { getRegisteredTools, registerToolFromDoc } from './tool-registry-service.js';
+import { getRegisteredTools, registerToolFromDoc, toggleToolActive } from './tool-registry-service.js';
 import { invalidateToolNameCache } from './tool-permissions-service.js';
 import { queryAuditLog } from './audit-service.js';
 import { jwtAuthHook } from './auth-middleware.js';
 import { sql } from '../db/client.js';
+import { invalidateToolConfigCache } from '../tools/config.js';
 
 /**
  * Register all admin API routes on the provided Fastify plugin scope.
@@ -348,6 +349,7 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
             youtrackBaseUrl: { type: ['string', 'null'] },
             youtrackToken: { type: ['string', 'null'] },
             youtrackProject: { type: ['string', 'null'] },
+            youtrackQuery: { type: ['string', 'null'] },
             syncIntervalMs: { type: 'number' },
           },
         },
@@ -375,6 +377,7 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
       youtrackBaseUrl?: string;
       youtrackToken?: string;
       youtrackProject?: string;
+      youtrackQuery?: string;
       syncIntervalMs?: number;
     };
   }>('/kb/settings', {
@@ -387,6 +390,7 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
           youtrackBaseUrl: { type: 'string' },
           youtrackToken: { type: 'string' },
           youtrackProject: { type: 'string' },
+          youtrackQuery: { type: 'string' },
           syncIntervalMs: { type: 'number', minimum: 60000 },
         },
       },
@@ -396,11 +400,11 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
       },
     },
   }, async (request, reply) => {
-    const { youtrackBaseUrl, youtrackToken, youtrackProject, syncIntervalMs } = request.body;
+    const { youtrackBaseUrl, youtrackToken, youtrackProject, youtrackQuery, syncIntervalMs } = request.body;
     if (syncIntervalMs !== undefined && syncIntervalMs < 60000) {
       return reply.status(400).send({ error: 'Sync interval must be at least 60000ms (1 minute)' });
     }
-    await updateSettings({ youtrackBaseUrl, youtrackToken, youtrackProject, syncIntervalMs });
+    await updateSettings({ youtrackBaseUrl, youtrackToken, youtrackProject, youtrackQuery, syncIntervalMs });
     return reply.status(200).send({ updated: true });
   });
 
@@ -426,6 +430,47 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
   }, async (_request, reply) => {
     const status = await getSyncStatus();
     return reply.status(200).send(status);
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // POST /admin/kb/test-connection — test YouTrack connectivity
+  // ──────────────────────────────────────────────────────────────
+  server.post('/kb/test-connection', {
+    schema: {
+      summary: 'Test YouTrack connectivity using saved credentials',
+      security: [{ adminSecret: [] }],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            connected: { type: 'boolean' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (_request, reply) => {
+    const settings = await getSettings();
+    const baseUrl = settings.youtrackBaseUrl || process.env.YOUTRACK_BASE_URL;
+    const token = settings.youtrackToken || process.env.YOUTRACK_TOKEN;
+
+    if (!baseUrl || !token) {
+      return reply.status(200).send({ connected: false, message: 'YouTrack credentials not configured' });
+    }
+
+    try {
+      const res = await fetch(`${baseUrl}/api/admin/projects?fields=id,name&$top=1`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        return reply.status(200).send({ connected: false, message: `YouTrack API returned ${res.status}: ${text.slice(0, 200)}` });
+      }
+      return reply.status(200).send({ connected: true, message: 'YouTrack connection successful' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return reply.status(200).send({ connected: false, message: `Connection failed: ${msg}` });
+    }
   });
 
   // ──────────────────────────────────────────────────────────────
@@ -826,6 +871,108 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
   });
 
   // ──────────────────────────────────────────────────────────────
+  // PUT /admin/tools/:toolName/toggle — Toggle a tool's active state
+  // ──────────────────────────────────────────────────────────────
+  server.put<{ Params: { toolName: string } }>('/tools/:toolName/toggle', {
+    schema: {
+      summary: 'Toggle a tool active/inactive',
+      description: 'Flips the is_active flag for a tool in the registry. Returns the new state.',
+      security: [{ adminSecret: [] }],
+      params: {
+        type: 'object',
+        required: ['toolName'],
+        properties: { toolName: { type: 'string' } },
+      },
+      response: {
+        200: { type: 'object', properties: { toolName: { type: 'string' }, isActive: { type: 'boolean' } } },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const { toolName } = request.params;
+    const newState = await toggleToolActive(sql, toolName);
+    if (newState === null) {
+      return reply.status(404).send({ error: `Tool '${toolName}' not found` });
+    }
+    invalidateToolNameCache();
+    return reply.status(200).send({ toolName, isActive: newState });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // GET /admin/tools/:toolName/config — Get API config for a tool
+  // ──────────────────────────────────────────────────────────────
+  server.get<{ Params: { toolName: string } }>('/tools/:toolName/config', {
+    schema: {
+      summary: 'Get API endpoint config for a tool',
+      security: [{ adminSecret: [] }],
+      params: { type: 'object', required: ['toolName'], properties: { toolName: { type: 'string' } } },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            toolName: { type: 'string' },
+            endpoint: { type: ['string', 'null'] },
+            method: { type: ['string', 'null'] },
+            notes: { type: ['string', 'null'] },
+          },
+        },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const [row] = await sql`
+      SELECT tool_name, parameters FROM tool_registry WHERE tool_name = ${request.params.toolName}
+    `;
+    if (!row) return reply.status(404).send({ error: 'Tool not found' });
+    const params = (row.parameters ?? {}) as Record<string, unknown>;
+    return reply.status(200).send({
+      toolName: row.tool_name,
+      endpoint: (params.endpoint as string) ?? null,
+      method: (params.method as string) ?? null,
+      notes: (params.notes as string) ?? null,
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // PUT /admin/tools/:toolName/config — Update API config for a tool
+  // ──────────────────────────────────────────────────────────────
+  server.put<{
+    Params: { toolName: string };
+    Body: { endpoint: string; method?: string; notes?: string };
+  }>('/tools/:toolName/config', {
+    schema: {
+      summary: 'Set the API endpoint override for a tool',
+      security: [{ adminSecret: [] }],
+      params: { type: 'object', required: ['toolName'], properties: { toolName: { type: 'string' } } },
+      body: {
+        type: 'object',
+        required: ['endpoint'],
+        properties: {
+          endpoint: { type: 'string', minLength: 1 },
+          method: { type: 'string' },
+          notes: { type: 'string' },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { updated: { type: 'boolean' } } },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const { endpoint, method, notes } = request.body;
+    const params = { endpoint, method: method ?? null, notes: notes ?? null };
+    const result = await sql`
+      UPDATE tool_registry SET parameters = ${JSON.stringify(params)}::jsonb, updated_at = now()
+      WHERE tool_name = ${request.params.toolName}
+    `;
+    if (result.count === 0) {
+      return reply.status(404).send({ error: 'Tool not found' });
+    }
+    invalidateToolConfigCache();
+    return reply.status(200).send({ updated: true });
+  });
+
+  // ──────────────────────────────────────────────────────────────
   // POST /admin/kb/upload — Upload a new API doc
   // ──────────────────────────────────────────────────────────────
   server.post<{
@@ -1069,5 +1216,149 @@ export async function adminRouter(server: FastifyInstance): Promise<void> {
     }
 
     return reply.status(204).send();
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // POST /admin/kb/docs/:id/analyze — Analyze doc content for API patterns
+  // ──────────────────────────────────────────────────────────────
+
+  /** POSibolt API endpoint patterns → tool names. */
+  const API_PATTERN_MAP: { pattern: RegExp; toolName: string }[] = [
+    { pattern: /\/productmaster\/productlist/i, toolName: 'list_products' },
+    { pattern: /\/productmaster\/search/i, toolName: 'get_product' },
+    { pattern: /\/productmaster\/search/i, toolName: 'get_stock_level' },
+    { pattern: /\/warehousemaster\/getWareHouseInventory/i, toolName: 'list_stock_levels' },
+    { pattern: /\/customermaster\/allbplist/i, toolName: 'list_contacts' },
+    { pattern: /\/customermaster\/allbplist/i, toolName: 'search_contacts' },
+    { pattern: /\/customermaster\/\d+|\/customermaster\/\{/i, toolName: 'get_contact' },
+    { pattern: /\/customermaster\/\d+|\/customermaster\/\{/i, toolName: 'get_supplier' },
+    { pattern: /\/salesorder\/saleshistory/i, toolName: 'list_orders' },
+    { pattern: /\/salesorder\/saleshistory/i, toolName: 'get_payment_summary' },
+    { pattern: /\/salesorder\/getsalesdetails/i, toolName: 'get_order' },
+    { pattern: /\/salesorder\/getsalesdetails/i, toolName: 'get_invoice' },
+    { pattern: /\/salesinvoice\/getPreviousInvoices/i, toolName: 'list_invoices' },
+    { pattern: /\/customermaster\/getCustomerOpenInvoices/i, toolName: 'list_overdue_invoices' },
+    { pattern: /\/customermaster\/getCustomerOpenInvoices/i, toolName: 'get_contact_invoices' },
+    { pattern: /\/salesorder\/pendingcustomerorders/i, toolName: 'get_contact_orders' },
+    { pattern: /\/stocktransferrequest/i, toolName: 'create_stock_entry' },
+    { pattern: /\/stocktransfer\/completestocktransfer/i, toolName: 'update_stock_entry' },
+    { pattern: /\/salesinvoice\/createorderinvoice/i, toolName: 'create_invoice' },
+    { pattern: /\/salesorder\/cancelorder/i, toolName: 'update_invoice' },
+    { pattern: /\/customermaster\b(?!\/allbplist|\/getCustomerOpenInvoices)/i, toolName: 'create_contact' },
+    { pattern: /\/customermaster\b(?!\/allbplist|\/getCustomerOpenInvoices)/i, toolName: 'update_contact' },
+    // Keyword-based fallback patterns
+    { pattern: /\bproduct\s*(list|catalog|master)\b/i, toolName: 'list_products' },
+    { pattern: /\bstock\s*(level|quantit|inventor)/i, toolName: 'list_stock_levels' },
+    { pattern: /\blow\s*stock|reorder\s*point/i, toolName: 'list_low_stock' },
+    { pattern: /\bsales\s*order|order\s*history/i, toolName: 'list_orders' },
+    { pattern: /\binvoice\s*(list|history|previous)/i, toolName: 'list_invoices' },
+    { pattern: /\boverdue|unpaid|open\s*invoice/i, toolName: 'list_overdue_invoices' },
+    { pattern: /\bbusiness\s*partner|contact\s*(list|master)|customer\s*master/i, toolName: 'list_contacts' },
+    { pattern: /\bpending\s*(customer\s*)?order/i, toolName: 'get_contact_orders' },
+    { pattern: /\bstock\s*transfer/i, toolName: 'create_stock_entry' },
+    { pattern: /\bcreate\s*(sales\s*)?invoice|order\s*invoice/i, toolName: 'create_invoice' },
+    { pattern: /\bcancel\s*order/i, toolName: 'update_invoice' },
+    { pattern: /\bcreate\s*(business\s*partner|contact|customer)/i, toolName: 'create_contact' },
+    { pattern: /\bknowledge\s*base|kb\s*article/i, toolName: 'search_kb' },
+  ];
+
+  server.post<{
+    Params: { id: string };
+  }>('/kb/docs/:id/analyze', {
+    schema: {
+      summary: 'Analyze a doc for API patterns and suggest tool mappings',
+      security: [{ adminSecret: [] }],
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string', format: 'uuid' } },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            suggestions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  toolName: { type: 'string' },
+                  confidence: { type: 'string' },
+                  matchedPatterns: { type: 'array', items: { type: 'string' } },
+                },
+              },
+            },
+            currentMappings: { type: 'array', items: { type: 'string' } },
+          },
+        },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const [doc] = await sql`
+      SELECT id, content, mapped_tools FROM kb_articles
+      WHERE id = ${request.params.id} AND youtrack_id LIKE 'DOC-%'
+    `;
+    if (!doc) return reply.status(404).send({ error: 'Doc not found' });
+
+    const content = (doc.content ?? '') as string;
+    const matchMap = new Map<string, string[]>();
+
+    for (const { pattern, toolName } of API_PATTERN_MAP) {
+      if (pattern.test(content)) {
+        const existing = matchMap.get(toolName) ?? [];
+        existing.push(pattern.source);
+        matchMap.set(toolName, existing);
+      }
+    }
+
+    const suggestions = Array.from(matchMap.entries()).map(([toolName, patterns]) => ({
+      toolName,
+      confidence: patterns.some((p) => p.startsWith('\\/')) ? 'high' : 'medium',
+      matchedPatterns: patterns,
+    }));
+
+    return reply.status(200).send({
+      suggestions,
+      currentMappings: (doc.mapped_tools ?? []) as string[],
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // PUT /admin/kb/docs/:id/mappings — Save confirmed tool mappings
+  // ──────────────────────────────────────────────────────────────
+  server.put<{
+    Params: { id: string };
+    Body: { mappedTools: string[] };
+  }>('/kb/docs/:id/mappings', {
+    schema: {
+      summary: 'Save tool mappings for an uploaded doc',
+      security: [{ adminSecret: [] }],
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string', format: 'uuid' } },
+      },
+      body: {
+        type: 'object',
+        required: ['mappedTools'],
+        properties: {
+          mappedTools: { type: 'array', items: { type: 'string' } },
+        },
+      },
+      response: {
+        200: { type: 'object', properties: { updated: { type: 'boolean' }, mappedTools: { type: 'array', items: { type: 'string' } } } },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const { mappedTools } = request.body;
+    const result = await sql`
+      UPDATE kb_articles SET mapped_tools = ${mappedTools}
+      WHERE id = ${request.params.id} AND youtrack_id LIKE 'DOC-%'
+      RETURNING mapped_tools
+    `;
+    if (result.count === 0) {
+      return reply.status(404).send({ error: 'Doc not found' });
+    }
+    return reply.status(200).send({ updated: true, mappedTools: result[0].mapped_tools });
   });
 }

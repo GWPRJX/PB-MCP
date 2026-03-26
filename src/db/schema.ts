@@ -192,6 +192,7 @@ export const kbArticles = pgTable('kb_articles', {
   tags: text('tags').array().notNull().default([]),    // YouTrack tags
   syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
   contentHash: text('content_hash'),                   // SHA-256 of content (nullable)
+  mappedTools: text('mapped_tools').array().notNull().default([]),  // MCP tools this doc maps to (DOC-* only)
 });
 
 // ---------------------------------------------------------------------------

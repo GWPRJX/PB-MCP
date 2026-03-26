@@ -10,10 +10,12 @@ import {
   testConnection,
   getAuditLog,
   listAllTools,
+  listToolRegistry,
   updateKeyAllowedTools,
   type TenantDetail,
   type ApiKey,
   type ToolPermission,
+  type ToolRegistryEntry,
   type AuditEntry,
 } from '../api';
 import { Tooltip } from '../components/Tooltip';
@@ -127,10 +129,6 @@ export function TenantDetailPage() {
  * @param tenant - Full tenant detail including active API keys and slug.
  */
 function SetupTab({ tenant }: { tenant: TenantDetail }) {
-  const activeKeys = tenant.apiKeys.filter(
-    (k) => k.status === 'active' && (!k.expiresAt || new Date(k.expiresAt) > new Date())
-  );
-  const [selectedKeyId, setSelectedKeyId] = useState(activeKeys[0]?.id ?? '');
   const [activeSnippet, setActiveSnippet] = useState<'claude' | 'cursor' | 'generic'>('claude');
   const [copiedField, setCopiedField] = useState<string>('');
 
@@ -140,7 +138,9 @@ function SetupTab({ tenant }: { tenant: TenantDetail }) {
     return `${base}/mcp`;
   })();
 
-  const selectedKey = activeKeys.find((k) => k.id === selectedKeyId);
+  const activeKeyCount = tenant.apiKeys.filter(
+    (k) => k.status === 'active' && (!k.expiresAt || new Date(k.expiresAt) > new Date())
+  ).length;
 
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -193,38 +193,13 @@ Replace YOUR_API_KEY with the API key generated for this tenant.`;
 
   return (
     <div className="max-w-2xl">
-      {/* Page-level intro note */}
       <p className="text-sm text-gray-600 mb-6">
-        These instructions help you connect an AI assistant to this tenant&apos;s data through PB MCP.
+        Connect an AI assistant to this tenant&apos;s data through PB MCP.
+        Replace <code className="bg-gray-100 px-1 rounded text-xs">YOUR_API_KEY</code> with
+        a key from the <strong>API Keys</strong> tab.
       </p>
 
-      {/* API key selector — only show if multiple active keys */}
-      {activeKeys.length > 1 && (
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Select API Key
-            <Tooltip text="If you have multiple active API keys, select which one you want to reference in the config snippets below." />
-          </label>
-          <select
-            value={selectedKeyId}
-            onChange={(e) => setSelectedKeyId(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            {activeKeys.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.label || 'Unlabeled'} — created {new Date(k.createdAt).toLocaleDateString()}
-              </option>
-            ))}
-          </select>
-          {selectedKey && (
-            <p className="text-xs text-gray-500 mt-1">
-              Selected: <span className="font-medium">{selectedKey.label || 'Unlabeled key'}</span>
-            </p>
-          )}
-        </div>
-      )}
-
-      {activeKeys.length === 0 && (
+      {activeKeyCount === 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-yellow-800">
             No active API keys. Create one in the <strong>API Keys</strong> tab first.
@@ -500,23 +475,47 @@ Replace YOUR_API_KEY with the API key generated for this tenant.`;
  * @param onRefresh - Callback to reload tenant data after a key mutation.
  */
 function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () => void }) {
-  const [newKeyLabel, setNewKeyLabel] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
   const [newKey, setNewKey] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [expandedKeyId, setExpandedKeyId] = useState<string | null>(null);
+  const [searchFilter, setSearchFilter] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [modalLabel, setModalLabel] = useState('');
+  const [modalExpiry, setModalExpiry] = useState('');
+  const [modalTools, setModalTools] = useState<Set<string>>(new Set());
   const [allTools, setAllTools] = useState<string[]>([]);
   const [toolsLoaded, setToolsLoaded] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [expandedKeyId, setExpandedKeyId] = useState<string | null>(null);
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());
   const [savingScope, setSavingScope] = useState(false);
+
+  // Load tools list once
+  useEffect(() => {
+    if (!toolsLoaded) {
+      listAllTools().then((tools) => {
+        setAllTools(tools);
+        setToolsLoaded(true);
+      }).catch(() => {});
+    }
+  }, [toolsLoaded]);
+
+  const openModal = () => {
+    setModalLabel('');
+    setModalExpiry('');
+    setModalTools(new Set(allTools)); // default: all tools selected
+    setShowModal(true);
+  };
 
   const handleCreate = async () => {
     setCreating(true);
     try {
-      const res = await createApiKey(tenant.id, newKeyLabel || undefined, expiresAt || null);
+      const toolsToSend = modalTools.size === allTools.length ? undefined : [...modalTools];
+      const res = await createApiKey(tenant.id, modalLabel || undefined, modalExpiry || null);
+      // If tool scoping was customized, save it
+      if (toolsToSend) {
+        await updateKeyAllowedTools(tenant.id, res.keyId, toolsToSend);
+      }
       setNewKey(res.apiKey);
-      setNewKeyLabel('');
-      setExpiresAt('');
+      setShowModal(false);
       onRefresh();
     } catch {
       // error handling via UI
@@ -531,38 +530,23 @@ function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () =>
     onRefresh();
   };
 
-  const handleExpand = async (key: ApiKey) => {
+  const handleExpand = (key: ApiKey) => {
     if (expandedKeyId === key.id) {
       setExpandedKeyId(null);
       return;
     }
-
-    // Load tools list on first expand
-    if (!toolsLoaded) {
-      try {
-        const tools = await listAllTools();
-        setAllTools(tools);
-        setToolsLoaded(true);
-      } catch {
-        // ignore
-      }
-    }
-
     // Pre-populate selected tools from key's allowedTools
     if (key.allowedTools) {
       setSelectedTools(new Set(key.allowedTools));
     } else {
-      // null = inherits tenant defaults, show all checked
       setSelectedTools(new Set(allTools));
     }
-
     setExpandedKeyId(key.id);
   };
 
   const handleSaveScope = async (keyId: string) => {
     setSavingScope(true);
     try {
-      // If all tools are selected, send null (inherit tenant defaults)
       const toolsToSend = selectedTools.size === allTools.length ? null : [...selectedTools];
       await updateKeyAllowedTools(tenant.id, keyId, toolsToSend);
       onRefresh();
@@ -587,6 +571,12 @@ function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () =>
     return new Date(key.expiresAt) < new Date();
   };
 
+  const filteredKeys = searchFilter
+    ? tenant.apiKeys.filter((k) =>
+        (k.label ?? '').toLowerCase().includes(searchFilter.toLowerCase())
+      )
+    : tenant.apiKeys;
+
   return (
     <div>
       <p className="text-sm text-gray-500 mb-3">
@@ -596,7 +586,7 @@ function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () =>
 
       {newKey && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-          <p className="text-sm text-yellow-800 font-medium mb-2">New API key created. Save it now -- it will not be shown again.</p>
+          <p className="text-sm text-yellow-800 font-medium mb-2">New API key created. Save it now — it will not be shown again.</p>
           <div className="bg-white border border-yellow-300 rounded px-3 py-2 font-mono text-xs break-all select-all">
             {newKey}
           </div>
@@ -607,24 +597,16 @@ function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () =>
       <div className="flex items-center gap-3 mb-4">
         <input
           type="text"
-          value={newKeyLabel}
-          onChange={(e) => setNewKeyLabel(e.target.value)}
-          placeholder="Key label (optional)"
-          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <input
-          type="datetime-local"
-          value={expiresAt}
-          onChange={(e) => setExpiresAt(e.target.value)}
-          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          title="Expiry date (optional)"
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+          placeholder="Search keys by label..."
+          className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
-          onClick={handleCreate}
-          disabled={creating}
-          className="bg-blue-600 text-white text-sm font-medium py-1.5 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          onClick={openModal}
+          className="bg-blue-600 text-white text-sm font-medium py-1.5 px-4 rounded-md hover:bg-blue-700 whitespace-nowrap"
         >
-          {creating ? 'Creating...' : 'Issue New Key'}
+          + Issue New Key
         </button>
       </div>
 
@@ -642,7 +624,7 @@ function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () =>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {tenant.apiKeys.map((k) => (
+            {filteredKeys.map((k) => (
               <KeyRow
                 key={k.id}
                 k={k}
@@ -658,9 +640,102 @@ function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () =>
                 savingScope={savingScope}
               />
             ))}
+            {filteredKeys.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">
+                {searchFilter ? 'No keys match your search.' : 'No API keys yet.'}
+              </td></tr>
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* Issue New Key Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Issue New API Key</h3>
+              <p className="text-xs text-gray-500 mt-1">Configure the key label, expiry, and tool access before creating.</p>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Label</label>
+                <input
+                  type="text"
+                  value={modalLabel}
+                  onChange={(e) => setModalLabel(e.target.value)}
+                  placeholder="e.g. Claude Desktop, Cursor, Production..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Expiry (optional)</label>
+                <input
+                  type="datetime-local"
+                  value={modalExpiry}
+                  onChange={(e) => setModalExpiry(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">Leave blank for a key that never expires.</p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Tool Access</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setModalTools(new Set(allTools))}
+                      className="text-xs text-blue-600 hover:underline"
+                    >All</button>
+                    <button
+                      onClick={() => setModalTools(new Set())}
+                      className="text-xs text-red-600 hover:underline"
+                    >None</button>
+                  </div>
+                </div>
+                <div className="bg-white rounded border border-gray-200 divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                  {allTools.map((tool) => (
+                    <label key={tool} className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-50">
+                      <span className="text-xs font-mono text-gray-700">{tool}</span>
+                      <input
+                        type="checkbox"
+                        checked={modalTools.has(tool)}
+                        onChange={() => {
+                          const next = new Set(modalTools);
+                          if (next.has(tool)) next.delete(tool); else next.add(tool);
+                          setModalTools(next);
+                        }}
+                        className="h-3.5 w-3.5 text-blue-600 rounded border-gray-300"
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  {modalTools.size === allTools.length ? 'All tools — inherits tenant permissions.' : `${modalTools.size} of ${allTools.length} tools selected.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="border border-gray-300 text-gray-700 text-sm font-medium py-2 px-4 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {creating ? 'Creating...' : 'Create Key'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -690,7 +765,7 @@ function KeyRow({
   onResetScope: () => void;
   savingScope: boolean;
 }) {
-  const toggleTool = (tool: string) => {
+  const handleToggleTool = (tool: string) => {
     const next = new Set(selectedTools);
     if (next.has(tool)) {
       next.delete(tool);
@@ -748,7 +823,7 @@ function KeyRow({
                 <span className="inline-flex items-center gap-1">Per-Key Tool Scoping<Tooltip text="Restrict which MCP tools this specific key can call. By default, a key inherits the tenant's tool permissions. Scoping lets you create limited-access keys for specific use cases." /></span>
               </h4>
               <p className="text-xs text-gray-500 mb-3">
-                Select which tools this key can access. Uncheck all and save to use tenant defaults.
+                Select which tools this key can access. Reset to inherit tenant defaults.
               </p>
               <div className="bg-white rounded border border-gray-200 divide-y divide-gray-100 max-h-60 overflow-y-auto mb-3">
                 {allTools.map((tool) => (
@@ -757,7 +832,7 @@ function KeyRow({
                     <input
                       type="checkbox"
                       checked={selectedTools.has(tool)}
-                      onChange={() => toggleTool(tool)}
+                      onChange={() => handleToggleTool(tool)}
                       className="h-3.5 w-3.5 text-blue-600 rounded border-gray-300"
                     />
                   </label>
@@ -797,17 +872,23 @@ function KeyRow({
  */
 function ToolsTab({ tenantId }: { tenantId: string }) {
   const [permissions, setPermissions] = useState<ToolPermission[]>([]);
+  const [globalRegistry, setGlobalRegistry] = useState<Map<string, boolean>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    getToolPermissions(tenantId)
-      .then((p) => { setPermissions(p); setDirty(false); })
+    Promise.all([getToolPermissions(tenantId), listToolRegistry()])
+      .then(([perms, registry]) => {
+        setPermissions(perms);
+        setGlobalRegistry(new Map(registry.map((t) => [t.toolName, t.isActive])));
+        setDirty(false);
+      })
       .finally(() => setLoading(false));
   }, [tenantId]);
 
   const toggle = (toolName: string) => {
+    if (globalRegistry.get(toolName) === false) return;
     setPermissions((prev) =>
       prev.map((p) => (p.toolName === toolName ? { ...p, enabled: !p.enabled } : p))
     );
@@ -826,7 +907,12 @@ function ToolsTab({ tenantId }: { tenantId: string }) {
   };
 
   const enableAll = () => {
-    setPermissions((prev) => prev.map((p) => ({ ...p, enabled: true })));
+    setPermissions((prev) =>
+      prev.map((p) => ({
+        ...p,
+        enabled: globalRegistry.get(p.toolName) !== false,
+      }))
+    );
     setDirty(true);
   };
 
@@ -844,6 +930,8 @@ function ToolsTab({ tenantId }: { tenantId: string }) {
     { label: 'Knowledge Base', tools: permissions.filter((p) => ['search_kb', 'get_kb_article', 'get_kb_sync_status'].includes(p.toolName)) },
   ];
 
+  const disabledGlobalCount = permissions.filter((p) => globalRegistry.get(p.toolName) === false).length;
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
@@ -860,6 +948,14 @@ function ToolsTab({ tenantId }: { tenantId: string }) {
         )}
       </div>
 
+      {disabledGlobalCount > 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 mb-4 text-xs text-gray-500">
+          {disabledGlobalCount} tool{disabledGlobalCount > 1 ? 's are' : ' is'} disabled globally in{' '}
+          <a href="/dashboard/setup" className="text-blue-600 hover:underline font-medium">Server Setup</a>{' '}
+          and cannot be enabled per-tenant.
+        </div>
+      )}
+
       <div className="space-y-6">
         {groups.map((g) => (
           <div key={g.label}>
@@ -872,17 +968,34 @@ function ToolsTab({ tenantId }: { tenantId: string }) {
               </span>
             </h3>
             <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
-              {g.tools.map((p) => (
-                <label key={p.toolName} className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-gray-50">
-                  <span className="text-sm font-mono text-gray-700">{p.toolName}</span>
-                  <input
-                    type="checkbox"
-                    checked={p.enabled}
-                    onChange={() => toggle(p.toolName)}
-                    className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                  />
-                </label>
-              ))}
+              {g.tools.map((p) => {
+                const globallyDisabled = globalRegistry.get(p.toolName) === false;
+                return (
+                  <label
+                    key={p.toolName}
+                    className={`flex items-center justify-between px-4 py-2.5 ${
+                      globallyDisabled
+                        ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                        : 'cursor-pointer hover:bg-gray-50'
+                    }`}
+                    title={globallyDisabled ? 'Disabled globally in Server Setup' : undefined}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-mono ${globallyDisabled ? 'text-gray-400' : 'text-gray-700'}`}>{p.toolName}</span>
+                      {globallyDisabled && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded">Global Off</span>
+                      )}
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={globallyDisabled ? false : p.enabled}
+                      onChange={() => toggle(p.toolName)}
+                      disabled={globallyDisabled}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 disabled:opacity-40"
+                    />
+                  </label>
+                );
+              })}
             </div>
           </div>
         ))}

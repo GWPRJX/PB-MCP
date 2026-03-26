@@ -70,12 +70,17 @@ export async function login(username: string, password: string): Promise<string>
  * @throws On non-2xx responses with the server's error message or HTTP status.
  */
 async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${getToken()}`,
+  };
+  if (opts.body) {
+    headers['Content-Type'] = 'application/json';
+  }
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${getToken()}`,
-      ...opts.headers,
+      ...headers,
+      ...opts.headers as Record<string, string>,
     },
   });
 
@@ -160,6 +165,7 @@ export interface KbSettings {
   youtrackBaseUrl: string | null;
   youtrackToken: string | null;
   youtrackProject: string | null;
+  youtrackQuery: string | null;
   syncIntervalMs: number;
 }
 
@@ -328,6 +334,10 @@ export interface ToolRegistryEntry {
 /** Returns all registered MCP tools from the tool registry. */
 export const listToolRegistry = () => api<ToolRegistryEntry[]>('/tools');
 
+/** Toggles a tool's active state in the global registry. */
+export const toggleTool = (toolName: string) =>
+  api<{ toolName: string; isActive: boolean }>(`/tools/${toolName}/toggle`, { method: 'PUT' });
+
 /** Returns the names of every MCP tool registered on the server. */
 export const listAllTools = async (): Promise<string[]> => {
   const tools = await listToolRegistry();
@@ -389,6 +399,20 @@ export const updateDoc = (id: string, data: { title?: string; content?: string; 
 export const deleteDoc = (id: string) =>
   api<void>(`/kb/docs/${id}`, { method: 'DELETE' });
 
+/** Analyze a doc's content for POSibolt API patterns and suggest tool mappings. */
+export const analyzeDoc = (id: string) =>
+  api<{
+    suggestions: { toolName: string; confidence: string; matchedPatterns: string[] }[];
+    currentMappings: string[];
+  }>(`/kb/docs/${id}/analyze`, { method: 'POST' });
+
+/** Save confirmed tool mappings for an uploaded doc. */
+export const updateDocMappings = (id: string, mappedTools: string[]) =>
+  api<{ updated: boolean; mappedTools: string[] }>(`/kb/docs/${id}/mappings`, {
+    method: 'PUT',
+    body: JSON.stringify({ mappedTools }),
+  });
+
 // KB Settings & Sync
 
 /** Fetches the current YouTrack connection settings and sync interval. */
@@ -413,3 +437,26 @@ export const updateKbSettings = (settings: Partial<KbSettings>) =>
  */
 export const getKbSyncStatus = () =>
   api<SyncStatus>('/kb/sync-status');
+
+/** Tests the saved YouTrack connection using stored credentials. */
+export const testYouTrackConnection = () =>
+  api<{ connected: boolean; message: string }>('/kb/test-connection', { method: 'POST' });
+
+// Tool API config
+
+export interface ToolApiConfig {
+  endpoint: string;
+  method?: string;
+  notes?: string;
+}
+
+/** Fetches the configured API endpoint override for a tool. */
+export const getToolConfig = (toolName: string) =>
+  api<{ config: ToolApiConfig | null }>(`/tools/${toolName}/config`);
+
+/** Saves an API endpoint override for a tool. */
+export const updateToolConfig = (toolName: string, config: ToolApiConfig) =>
+  api<{ updated: boolean }>(`/tools/${toolName}/config`, {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });

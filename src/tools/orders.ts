@@ -4,6 +4,7 @@ import { getErpConfig } from '../context.js';
 import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
 import { logger } from '../logger.js';
+import { getToolEndpoint } from './config.js';
 
 /* ------------------------------------------------------------------ */
 /*  Helper: date formatting                                            */
@@ -141,9 +142,10 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
         if (customerId !== undefined) params.customerId = customerId;
         if (orgId !== undefined) params.orgId = orgId;
 
+        const endpoint = await getToolEndpoint('list_orders', '/salesorder/saleshistory');
         const items = await pbGet<SalesHistoryItem[]>(
           config,
-          '/salesorder/saleshistory',
+          endpoint,
           params,
         );
 
@@ -172,9 +174,10 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
       try {
         const config = getErpConfig();
 
+        const endpoint = await getToolEndpoint('get_order', '/salesorder/getsalesdetails');
         const result = await pbGet<SalesDetail | SalesDetail[]>(
           config,
-          '/salesorder/getsalesdetails',
+          endpoint,
           { orderNo },
         );
 
@@ -228,9 +231,10 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
         };
         if (customerId !== undefined) params.customerId = customerId;
 
+        const endpoint = await getToolEndpoint('list_invoices', '/salesinvoice/getPreviousInvoices');
         const items = await pbGet<InvoiceItem[]>(
           config,
-          '/salesinvoice/getPreviousInvoices',
+          endpoint,
           params,
         );
 
@@ -263,9 +267,10 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
       try {
         const config = getErpConfig();
 
+        const endpoint = await getToolEndpoint('get_invoice', '/salesorder/getsalesdetails');
         const result = await pbGet<SalesDetail | SalesDetail[]>(
           config,
-          '/salesorder/getsalesdetails',
+          endpoint,
           { invoiceNo },
         );
 
@@ -300,9 +305,10 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
       try {
         const config = getErpConfig();
 
+        const endpoint = await getToolEndpoint('list_overdue_invoices', '/customermaster/getCustomerOpenInvoices');
         const items = await pbGet<OpenInvoiceItem[]>(
           config,
-          '/customermaster/getCustomerOpenInvoices',
+          endpoint,
           { customerId },
         );
 
@@ -355,9 +361,10 @@ export function registerOrdersTools(server: McpServer, filter?: Set<string> | nu
         };
         if (customerId !== undefined) params.customerId = customerId;
 
+        const endpoint = await getToolEndpoint('get_payment_summary', '/salesorder/saleshistory');
         const items = await pbGet<SalesHistoryItem[]>(
           config,
-          '/salesorder/saleshistory',
+          endpoint,
           params,
         );
 

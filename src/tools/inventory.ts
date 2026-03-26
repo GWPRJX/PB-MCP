@@ -4,6 +4,7 @@ import { getErpConfig } from '../context.js';
 import { pbGet } from '../posibolt/client.js';
 import { toolError, toolSuccess, shouldRegister, withAudit } from './errors.js';
 import { logger } from '../logger.js';
+import { getToolEndpoint } from './config.js';
 
 /* ------------------------------------------------------------------ */
 /*  POSibolt product-list response shape                              */
@@ -64,7 +65,8 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
     withAudit('list_products', async ({ limit = 200, offset = 0 }) => {
       try {
         const config = getErpConfig();
-        const data = await pbGet<PbProduct[]>(config, '/productmaster/productlist', {
+        const endpoint = await getToolEndpoint('list_products', '/productmaster/productlist');
+        const data = await pbGet<PbProduct[]>(config, endpoint, {
           limitByOrg: true,
           limit,
           offset,
@@ -113,7 +115,8 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
     withAudit('get_product', async ({ searchText }) => {
       try {
         const config = getErpConfig();
-        const data = await pbGet<PbProduct[]>(config, '/productmaster/search', {
+        const endpoint = await getToolEndpoint('get_product', '/productmaster/search');
+        const data = await pbGet<PbProduct[]>(config, endpoint, {
           searchText,
           limit: 1,
         });
@@ -162,6 +165,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
     withAudit('list_stock_levels', async ({ warehouseId }) => {
       try {
         const config = getErpConfig();
+        const endpoint = await getToolEndpoint('list_stock_levels', '/warehousemaster/getWareHouseInventory');
         const params: Record<string, string | number | boolean> = {};
         if (warehouseId !== undefined) {
           params.warehouseId = warehouseId;
@@ -169,7 +173,7 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
 
         const data = await pbGet<PbWarehouseInventory[]>(
           config,
-          '/warehousemaster/getWareHouseInventory',
+          endpoint,
           params,
         );
 
@@ -200,7 +204,8 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
     withAudit('get_stock_level', async ({ searchText }) => {
       try {
         const config = getErpConfig();
-        const data = await pbGet<PbProduct[]>(config, '/productmaster/search', {
+        const endpoint = await getToolEndpoint('get_stock_level', '/productmaster/search');
+        const data = await pbGet<PbProduct[]>(config, endpoint, {
           searchText,
           limit: 5,
         });
@@ -251,7 +256,8 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
         const config = getErpConfig();
 
         // Fetch a large batch of active products; filter those below threshold
-        const data = await pbGet<PbProduct[]>(config, '/productmaster/productlist', {
+        const endpoint = await getToolEndpoint('list_low_stock', '/productmaster/productlist');
+        const data = await pbGet<PbProduct[]>(config, endpoint, {
           limitByOrg: true,
           limit: 500,
           offset: 0,
@@ -328,9 +334,10 @@ export function registerInventoryTools(server: McpServer, filter?: Set<string> |
     withAudit('get_supplier', async ({ vendorId }) => {
       try {
         const config = getErpConfig();
+        const endpoint = await getToolEndpoint('get_supplier', `/customermaster/${vendorId}`);
         const data = await pbGet<Record<string, unknown>>(
           config,
-          `/customermaster/${vendorId}`,
+          endpoint,
         );
 
         if (!data) {

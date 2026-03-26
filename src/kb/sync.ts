@@ -30,6 +30,7 @@ export async function syncKbArticles(): Promise<SyncResult> {
   const baseUrl = dbSettings.youtrackBaseUrl || process.env.YOUTRACK_BASE_URL;
   const token = dbSettings.youtrackToken || process.env.YOUTRACK_TOKEN;
   const project = dbSettings.youtrackProject || (process.env.YOUTRACK_PROJECT ?? 'P8');
+  const extraQuery = dbSettings.youtrackQuery || process.env.YOUTRACK_QUERY || '';
 
   if (!baseUrl || !token) {
     logger.warn('YouTrack credentials not configured (neither DB nor env vars) -- skipping sync');
@@ -40,9 +41,14 @@ export async function syncKbArticles(): Promise<SyncResult> {
   const pageSize = 100;
   let skip = 0;
 
+  // Build query: always filter by project, optionally append user filter (e.g. "tag: api")
+  const queryParts = [`project:${project}`];
+  if (extraQuery.trim()) queryParts.push(extraQuery.trim());
+  const fullQuery = queryParts.join(' ');
+
   while (true) {
     const fields = 'id,idReadable,summary,content,tags(name),parentArticle(id,idReadable,summary)';
-    const url = `${baseUrl}/api/articles?fields=${fields}&query=project:${project}&$top=${pageSize}&$skip=${skip}`;
+    const url = `${baseUrl}/api/articles?fields=${fields}&query=${encodeURIComponent(fullQuery)}&$top=${pageSize}&$skip=${skip}`;
 
     const res = await fetch(url, {
       headers: {

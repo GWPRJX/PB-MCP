@@ -12,6 +12,7 @@ import { pbPost } from '../posibolt/client.js';
 import { getErpConfig } from '../context.js';
 import { shouldRegister, withAudit, toolSuccess, toolError } from './errors.js';
 import { logger } from '../logger.js';
+import { getToolEndpoint } from './config.js';
 
 /**
  * Convert an ISO date string (YYYY-MM-DD) to POSibolt format (dd-MM-yyyy).
@@ -80,7 +81,8 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
             warehouseId: 0,
           })),
         };
-        const result = await pbPost(config, '/stocktransferrequest', body);
+        const endpoint = await getToolEndpoint('create_stock_entry', '/stocktransferrequest');
+        const result = await pbPost(config, endpoint, body);
         return toolSuccess(result);
       } catch (err) {
         logger.error({ err }, 'create_stock_entry error');
@@ -129,7 +131,8 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
             uomId: l.uomId ?? 100,
           })),
         };
-        const result = await pbPost(config, '/stocktransfer/completestocktransfer', body);
+        const endpoint = await getToolEndpoint('update_stock_entry', '/stocktransfer/completestocktransfer');
+        const result = await pbPost(config, endpoint, body);
         return toolSuccess(result);
       } catch (err) {
         logger.error({ err }, 'update_stock_entry error');
@@ -232,7 +235,8 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
           invoiceLineList,
           payments,
         };
-        const result = await pbPost(config, '/salesinvoice/createorderinvoice', body);
+        const endpoint = await getToolEndpoint('create_invoice', '/salesinvoice/createorderinvoice');
+        const result = await pbPost(config, endpoint, body);
         return toolSuccess(result);
       } catch (err) {
         logger.error({ err }, 'create_invoice error');
@@ -253,7 +257,8 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
     withAudit('update_invoice', async (params) => {
       try {
         const config = getErpConfig();
-        const result = await pbPost(config, '/salesorder/cancelorder', { orderNo: params.orderNo });
+        const endpoint = await getToolEndpoint('update_invoice', '/salesorder/cancelorder');
+        const result = await pbPost(config, endpoint, { orderNo: params.orderNo });
         return toolSuccess(result);
       } catch (err) {
         logger.error({ err }, 'update_invoice error');
@@ -307,7 +312,8 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
         if (params.creditLimit !== undefined) body.creditLimit = params.creditLimit;
         if (params.pricelistId !== undefined) body.pricelistId = params.pricelistId;
 
-        const result = await pbPost(config, '/customermaster', body);
+        const endpoint = await getToolEndpoint('create_contact', '/customermaster');
+        const result = await pbPost(config, endpoint, body);
         return toolSuccess(result);
       } catch (err) {
         logger.error({ err }, 'create_contact error');
@@ -365,7 +371,8 @@ export function registerWriteTools(server: McpServer, filter?: Set<string> | nul
         if (params.pricelistId !== undefined) body.pricelistId = params.pricelistId;
         if (params.creditStatus !== undefined) body.creditStatus = params.creditStatus;
 
-        const result = await pbPost(config, `/customermaster/${params.customerId}`, body);
+        const endpoint = await getToolEndpoint('update_contact', `/customermaster/${params.customerId}`);
+        const result = await pbPost(config, endpoint, body);
         return toolSuccess(result);
       } catch (err) {
         logger.error({ err }, 'update_contact error');
