@@ -9,24 +9,6 @@ const wizardSteps = [
   { num: 3, label: 'API Key' },
 ];
 
-const erpFieldTooltips: Record<string, string> = {
-  erpBaseUrl: 'The root URL of the POSibolt ERP server for this tenant.',
-  erpClientId: 'The OAuth client identifier issued by POSibolt.',
-  erpAppSecret: 'The OAuth client secret from POSibolt. Never share this value.',
-  erpUsername: 'The POSibolt user account for ERP operations.',
-  erpPassword: 'The password for the POSibolt user account.',
-  erpTerminal: 'The POSibolt terminal identifier for transaction operations.',
-};
-
-const erpFields = [
-  { key: 'erpBaseUrl' as const, label: 'Base URL', placeholder: 'https://bigblue.posibolt.com', type: 'url' },
-  { key: 'erpClientId' as const, label: 'Client ID', placeholder: 'OAuth client_id', type: 'text' },
-  { key: 'erpAppSecret' as const, label: 'App Secret', placeholder: 'OAuth app_secret', type: 'password' },
-  { key: 'erpUsername' as const, label: 'Username', placeholder: 'POSibolt username', type: 'text' },
-  { key: 'erpPassword' as const, label: 'Password', placeholder: 'POSibolt password', type: 'password' },
-  { key: 'erpTerminal' as const, label: 'Terminal', placeholder: 'Terminal 1', type: 'text' },
-];
-
 type ErpKey = 'erpBaseUrl' | 'erpClientId' | 'erpAppSecret' | 'erpUsername' | 'erpPassword' | 'erpTerminal';
 
 /**

@@ -15,7 +15,6 @@ import {
   type TenantDetail,
   type ApiKey,
   type ToolPermission,
-  type ToolRegistryEntry,
   type AuditEntry,
 } from '../api';
 import { Tooltip } from '../components/Tooltip';
@@ -38,9 +37,9 @@ export function TenantDetailPage() {
   const [error, setError] = useState('');
   const [tab, setTab] = useState<Tab>('keys');
 
-  const load = () => {
+  const load = (silent = false) => {
     if (!id) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     getTenant(id)
       .then(setTenant)
       .catch((e) => setError(e.message))
@@ -110,7 +109,7 @@ export function TenantDetailPage() {
         </div>
       </div>
 
-      {tab === 'keys' && <KeysTab tenant={tenant} onRefresh={load} />}
+      {tab === 'keys' && <KeysTab tenant={tenant} onRefresh={() => load(true)} />}
       {tab === 'tools' && <ToolsTab tenantId={tenant.id} />}
       {tab === 'erp' && <ErpTab tenant={tenant} />}
       {tab === 'setup' && <SetupTab tenant={tenant} />}
@@ -138,9 +137,10 @@ function SetupTab({ tenant }: { tenant: TenantDetail }) {
     return `${base}/mcp`;
   })();
 
-  const activeKeyCount = tenant.apiKeys.filter(
+  const activeKeys = tenant.apiKeys.filter(
     (k) => k.status === 'active' && (!k.expiresAt || new Date(k.expiresAt) > new Date())
-  ).length;
+  );
+  const activeKeyCount = activeKeys.length;
 
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -195,14 +195,45 @@ Replace YOUR_API_KEY with the API key generated for this tenant.`;
     <div className="max-w-2xl">
       <p className="text-sm text-gray-600 mb-6">
         Connect an AI assistant to this tenant&apos;s data through PB MCP.
-        Replace <code className="bg-gray-100 px-1 rounded text-xs">YOUR_API_KEY</code> with
-        a key from the <strong>API Keys</strong> tab.
+        Replace <code className="bg-gray-100 px-1 rounded text-xs">YOUR_API_KEY</code> in
+        the config snippets below with the key you saved when you created it.
       </p>
 
-      {activeKeyCount === 0 && (
+      {/* Active keys reference */}
+      {activeKeyCount === 0 ? (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-yellow-800">
             No active API keys. Create one in the <strong>API Keys</strong> tab first.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+            Active keys for this tenant ({activeKeyCount})
+          </p>
+          <div className="space-y-1.5">
+            {activeKeys.map((k) => (
+              <div key={k.id} className="flex items-center gap-3 text-sm">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                <span className="font-medium text-gray-800">{k.label || 'Unnamed key'}</span>
+                <span className="text-gray-400 text-xs">
+                  created {new Date(k.createdAt).toLocaleDateString()}
+                </span>
+                {k.expiresAt && (
+                  <span className="text-gray-400 text-xs">
+                    &middot; expires {new Date(k.expiresAt).toLocaleDateString()}
+                  </span>
+                )}
+                {k.allowedTools && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                    {k.allowedTools.length} tools
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-3">
+            API keys are shown only once at creation. If you lost a key, revoke it on the <strong>Keys</strong> tab and create a new one.
           </p>
         </div>
       )}
@@ -673,9 +704,10 @@ function KeysTab({ tenant, onRefresh }: { tenant: TenantDetail; onRefresh: () =>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Expiry (optional)</label>
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={modalExpiry}
                   onChange={(e) => setModalExpiry(e.target.value)}
+                  min={new Date().toISOString().slice(0, 10)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <p className="text-xs text-gray-400 mt-1">Leave blank for a key that never expires.</p>
