@@ -173,7 +173,7 @@ Migrations create all tables, roles, and RLS policies. Run them as the superuser
 npm run migrate:up
 ```
 
-This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The ten migrations execute in order:
+This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The twelve migrations execute in order:
 
 | Migration | What it creates |
 |-----------|----------------|
@@ -187,6 +187,8 @@ This runs `golang-migrate` against `DATABASE_MIGRATION_URL`. The ten migrations 
 | `000008` | `audit_log` table (append-only, RLS) |
 | `000009` | `expires_at` column on api_keys (optional key expiry) |
 | `000010` | `server_settings` table (key-value store for dashboard-configurable settings) |
+| `000011` | `tool_registry` table (global tool catalog with 27 seeded tools, endpoint config JSONB) |
+| `000012` | `mapped_tools` column on kb_articles (doc-to-tool mapping for uploaded docs) |
 
 **Set the app_login password to match DATABASE_URL:**
 
@@ -213,7 +215,7 @@ psql "$DATABASE_MIGRATION_URL" -c "
 
 ```bash
 npm run migrate:status
-# Should print: Version: 10 (the latest migration number)
+# Should print: Version: 12 (the latest migration number)
 ```
 
 ---
@@ -307,7 +309,7 @@ curl -s -X POST http://localhost:3000/mcp \
   | jq '.result.tools | length'
 ```
 
-Expected output: `21`
+Expected output: `27`
 
 ---
 
@@ -455,7 +457,46 @@ curl -s -X POST http://localhost:3000/admin/kb/refresh \
 ```bash
 curl -s http://localhost:3000/admin/tools \
   -H "Authorization: Bearer TOKEN" | jq .
-# Returns: ["list_products", "get_product", ...]
+# Returns tool registry entries with name, category, source, and active state
+```
+
+### Per-tool API endpoint configuration
+
+```bash
+# View current endpoint config for a tool
+curl -s http://localhost:3000/admin/tools/list_products/config \
+  -H "Authorization: Bearer TOKEN" | jq .
+
+# Override the endpoint a tool uses (e.g. use productdetailedlist instead of productlist)
+curl -s -X PUT http://localhost:3000/admin/tools/list_products/config \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"endpoint": "/productmaster/productdetailedlist", "method": "GET", "notes": "Returns warehouse info"}' | jq .
+```
+
+The override is cached for 60 seconds. All 27 tools resolve their endpoint via `getToolEndpoint()` at runtime.
+
+### Doc-to-tool mapping
+
+```bash
+# Analyze an uploaded doc for API patterns
+curl -s -X POST http://localhost:3000/admin/kb/docs/DOC_ID/analyze \
+  -H "Authorization: Bearer TOKEN" | jq .
+# Returns: { suggestions: [{ toolName, confidence, matchedPatterns }], currentMappings }
+
+# Save tool mappings for a doc
+curl -s -X PUT http://localhost:3000/admin/kb/docs/DOC_ID/mappings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"mappedTools": ["list_products", "get_product"]}' | jq .
+```
+
+### Test YouTrack connection
+
+```bash
+curl -s -X POST http://localhost:3000/admin/kb/test-connection \
+  -H "Authorization: Bearer TOKEN" | jq .
+# Returns: { connected: true, message: "Connected successfully..." }
 ```
 
 ### Interactive API docs
@@ -464,7 +505,7 @@ Open `http://localhost:3000/docs` in a browser. Scalar generates an interactive 
 
 ### Admin dashboard
 
-Open `http://localhost:3000/dashboard/` in a browser. The React dashboard provides a GUI for all admin operations: managing tenants, API keys (with expiry and per-key tool scoping), tool permissions, ERP configuration, audit logs, and API documentation upload.
+Open `http://localhost:3000/dashboard/` in a browser. The React dashboard provides a GUI for all admin operations: managing tenants, API keys (with expiry and per-key tool scoping), tool permissions, ERP configuration, audit logs, knowledge base management (YouTrack connection with test and article filtering, file upload with .docx support, auto doc-to-tool mapping), and per-tool API endpoint configuration.
 
 ---
 

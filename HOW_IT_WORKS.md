@@ -6,7 +6,7 @@ A technical reference for the Multi-Tenant ERP MCP Server. Covers architecture, 
 
 ## What It Does
 
-PB MCP is an HTTP server that exposes a company's ERP data (inventory, orders, invoices, contacts) and YouTrack knowledge base articles as 27 MCP (Model Context Protocol) tools (21 read + 6 write). An AI assistant like Claude connects to this server and can then answer questions like "what products are low on stock?" or "show me overdue invoices for this month", and perform write operations like creating invoices or transferring stock — the server handles authentication, tenant isolation, and database queries.
+PB MCP is an HTTP server that exposes a company's ERP data (inventory, orders, invoices, contacts) and YouTrack knowledge base articles as 27 MCP (Model Context Protocol) tools (21 read + 6 write). Each tool resolves its POSibolt API endpoint via a DB-backed config with admin-configurable overrides. An AI assistant like Claude connects to this server and can then answer questions like "what products are low on stock?" or "show me overdue invoices for this month", and perform write operations like creating invoices or transferring stock — the server handles authentication, tenant isolation, and API routing.
 
 Multiple companies ("tenants") share a single running server and a single PostgreSQL database. Their data is kept separate by PostgreSQL Row-Level Security.
 
@@ -39,12 +39,14 @@ pb mcp/
 │   ├── server.ts             # Fastify factory — registers plugins, admin router, JWT login, dashboard static serving
 │   ├── context.ts            # AsyncLocalStorage — propagates tenant context (ID, ERP config, enabled tools)
 │   ├── admin/
-│   │   ├── router.ts         # Admin REST API routes (18 endpoints: tenants, keys, tools, ERP, audit, KB docs)
+│   │   ├── router.ts         # Admin REST API routes (25+ endpoints: tenants, keys, tools, ERP, audit, KB docs, tool config)
 │   │   ├── tenant-service.ts # DB operations for tenants and API keys (incl. expiry + allowed_tools)
 │   │   ├── auth-middleware.ts # JWT signing/verification (HS256) + jwtAuthHook (JWT or X-Admin-Secret)
 │   │   ├── tool-permissions-service.ts # Tenant + per-key tool access control
 │   │   ├── audit-service.ts  # recordToolCall (fire-and-forget) + queryAuditLog
 │   │   ├── settings-service.ts # Key-value store for dashboard-configurable settings (KB sync, etc.)
+│   │   ├── tool-registry-service.ts # Global tool registry management (seed, query, toggle)
+│   │   ├── seed-service.ts   # Demo tenant seeding for development
 │   │   └── connection-tester.ts # POSibolt ERP connection test (standalone + per-tenant)
 │   ├── db/
 │   │   ├── client.ts         # Two postgres.js pools + withTenantContext helper
@@ -52,14 +54,16 @@ pb mcp/
 │   │   └── check-pending.ts  # Startup check: warns if unapplied migrations exist
 │   ├── mcp/
 │   │   ├── auth.ts           # Per-request API key validation (incl. expiry check, tool filtering, audit logging)
-│   │   └── server.ts         # createMcpServer() — registers 21 tools with optional filter
+│   │   └── server.ts         # createMcpServer() — registers 27 tools with optional filter
 │   ├── posibolt/
 │   │   └── client.ts         # POSibolt REST API client (OAuth token caching, pbGet/pbPost)
 │   ├── tools/
 │   │   ├── errors.ts         # toolSuccess() / toolError() response helpers
+│   │   ├── config.ts         # Per-tool API endpoint config resolver (DB-backed with 60s cache)
 │   │   ├── inventory.ts      # 7 inventory tools (list_products, get_product, etc.)
 │   │   ├── orders.ts         # 6 order/invoice tools (list_orders, get_invoice, etc.)
 │   │   ├── crm.ts            # 5 contact tools (list_contacts, search_contacts, etc.)
+│   │   ├── write.ts          # 6 write tools (create_stock_entry, create_invoice, etc.)
 │   │   └── kb.ts             # 3 KB tools (search_kb, get_kb_article, get_kb_sync_status)
 │   └── kb/
 │       ├── sync.ts           # syncKbArticles() — fetches from YouTrack and caches locally
@@ -88,7 +92,9 @@ pb mcp/
 │       ├── 000007_create_tool_permissions.up.sql
 │       ├── 000008_create_audit_log.up.sql
 │       ├── 000009_add_api_key_expiry.up.sql
-│       └── 000010_create_server_settings.up.sql
+│       ├── 000010_create_server_settings.up.sql
+│       ├── 000011_create_tool_registry.up.sql
+│       └── 000012_add_doc_tool_mappings.up.sql
 ├── scripts/
 │   └── assert-rls.sh         # CI gate: fails if any tenant table lacks an RLS policy
 └── .github/workflows/ci.yml  # GitHub Actions: run migrations + RLS check + test suite
@@ -214,11 +220,17 @@ created_at, revoked_at, expires_at TIMESTAMPTZ, allowed_tools TEXT[]
 - `order_line_items` — products × quantity × price per order (no updated_at — append only)
 - `invoices` — linked to orders, tracks amount_due, status (paid/unpaid/overdue)
 
-**`kb_articles`** (migration 000005) — **no RLS, no tenant_id** — global cache shared by all tenants
+**`kb_articles`** (migrations 000005 + 000012) — **no RLS, no tenant_id** — global cache shared by all tenants
 ```sql
-id UUID, youtrack_id TEXT UNIQUE, summary TEXT, content TEXT, tags TEXT[], synced_at TIMESTAMPTZ, content_hash TEXT
+id UUID, youtrack_id TEXT UNIQUE, summary TEXT, content TEXT, tags TEXT[], synced_at TIMESTAMPTZ, content_hash TEXT, mapped_tools TEXT[]
 ```
-YouTrack-synced articles have `P8-A-*` IDs. Admin-uploaded docs have `DOC-*` IDs.
+YouTrack-synced articles have `P8-A-*` IDs. Admin-uploaded docs have `DOC-*` IDs. `mapped_tools` (000012) stores which MCP tools an uploaded doc is relevant to.
+
+**`tool_registry`** (migration 000011) — **no RLS** — global catalog of all MCP tools
+```sql
+id UUID, tool_name TEXT UNIQUE, display_name TEXT, description TEXT, category TEXT, source TEXT, source_doc_id UUID→kb_articles, is_active BOOLEAN, parameters JSONB, created_at, updated_at
+```
+Seeded with all 27 builtin tools. `is_active` controls global tool availability. `parameters` JSONB stores per-tool API endpoint overrides (endpoint, method, notes) used by `getToolEndpoint()` at runtime.
 
 **`tool_permissions`** (migration 000007) — RLS enabled + FORCE
 ```sql
@@ -292,7 +304,7 @@ All three are guarded by the same `extractAndValidateApiKey` middleware.
 
 ---
 
-## The 21 MCP Tools
+## The 27 MCP Tools
 
 ### Inventory (7 tools)
 
@@ -339,14 +351,14 @@ All three are guarded by the same `extractAndValidateApiKey` middleware.
 
 | Tool | What it does |
 |------|-------------|
-| `transfer_stock` | Move stock between locations for a product |
-| `create_invoice` | Create a new invoice linked to an order |
-| `cancel_invoice` | Cancel an existing invoice |
-| `create_contact` | Add a new CRM contact |
-| `update_contact` | Update an existing contact's details |
-| `delete_contact` | Remove a CRM contact |
+| `create_stock_entry` | Create a stock transfer request between warehouses |
+| `update_stock_entry` | Complete/finalize a pending stock transfer |
+| `create_invoice` | Create a sales order + invoice with line items and payments |
+| `update_invoice` | Cancel an existing sales order |
+| `create_contact` | Create a new business partner (customer or vendor) |
+| `update_contact` | Update an existing business partner's details |
 
-All ERP tools (read + write) enforce tenant isolation via `withTenantContext`. KB tools query `kb_articles` directly — no tenant context needed (global cache). Write tools call the POSibolt POST API via `pbPost()` and record audit log entries.
+All ERP tools (read + write) call the POSibolt REST API via `pbGet()`/`pbPost()`. Each tool resolves its API endpoint via `getToolEndpoint()` — this checks the `tool_registry.parameters` JSONB column for admin-configured overrides before falling back to the hardcoded default. KB tools query `kb_articles` directly — no tenant context needed (global cache). All tool calls are audit-logged.
 
 ### Tool response shape
 
@@ -365,10 +377,11 @@ On error: same structure with `isError: true` and a `{ "code": "NOT_FOUND", "mes
 The KB sync system keeps a local cache of YouTrack articles so MCP tool queries are fast and don't depend on YouTrack availability.
 
 **Sync worker** (`src/kb/sync.ts`):
-1. Checks `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` — logs a warning and returns early if absent
-2. Paginates through `GET /api/articles?query=project:P8&$top=100&$skip=N` until a page returns fewer than 100 items
-3. Computes SHA-256 `content_hash` for each article
-4. Atomically replaces the cache in one transaction: `DELETE FROM kb_articles` then `INSERT` all rows. If the transaction fails, existing rows are untouched.
+1. Checks for YouTrack credentials — first from dashboard-configurable DB settings, then from env vars. Logs a warning and returns early if absent.
+2. Builds the query: `project:{PROJECT}` plus an optional article filter query (e.g. `tag: api`) configurable via the dashboard KB settings page.
+3. Paginates through `GET /api/articles?query=...&$top=100&$skip=N` until a page returns fewer than 100 items
+4. Computes SHA-256 `content_hash` for each article
+5. Atomically replaces the cache in one transaction: `DELETE FROM kb_articles` then `INSERT` all rows. If the transaction fails, existing rows are untouched.
 
 **Scheduler** (`src/kb/scheduler.ts`):
 - Called once at server startup (in `src/index.ts`)
@@ -411,7 +424,7 @@ All routes under `/admin` require authentication — either `Authorization: Bear
 |--------|------|--------|
 | `GET` | `/admin/tenants/:id/tools` | Get tool permissions (enabled/disabled per tool) |
 | `PUT` | `/admin/tenants/:id/tools` | Update tenant-level tool permissions |
-| `GET` | `/admin/tools` | List all 21 available MCP tool names |
+| `GET` | `/admin/tools` | List all registered MCP tools (name, category, source, active state) |
 
 ### ERP Configuration
 
@@ -425,9 +438,10 @@ All routes under `/admin` require authentication — either `Authorization: Bear
 
 | Method | Path | Action |
 |--------|------|--------|
-| `GET` | `/admin/kb/settings` | Get YouTrack connection settings (base URL, project, sync interval) |
+| `GET` | `/admin/kb/settings` | Get YouTrack connection settings (base URL, project, article filter query, sync interval) |
 | `PUT` | `/admin/kb/settings` | Update YouTrack connection settings |
 | `GET` | `/admin/kb/sync-status` | Get last sync timestamp, article count, success/failure |
+| `POST` | `/admin/kb/test-connection` | Test YouTrack connection using stored credentials |
 
 ### Audit Log
 
@@ -445,6 +459,17 @@ All routes under `/admin` require authentication — either `Authorization: Bear
 | `GET` | `/admin/kb/docs/:id` | Get single doc with full content |
 | `PUT` | `/admin/kb/docs/:id` | Update uploaded doc (title, content, tags) |
 | `DELETE` | `/admin/kb/docs/:id` | Delete uploaded doc (DOC-* only) |
+| `POST` | `/admin/kb/docs/:id/analyze` | Analyze doc content for POSibolt API patterns → tool mapping suggestions |
+| `PUT` | `/admin/kb/docs/:id/mappings` | Save confirmed tool mappings for a doc |
+
+### Tool Registry & Config
+
+| Method | Path | Action |
+|--------|------|--------|
+| `GET` | `/admin/tools` | List all registered MCP tools with category, source, and active state |
+| `PUT` | `/admin/tools/:toolName/toggle` | Toggle a tool's global active/inactive state |
+| `GET` | `/admin/tools/:toolName/config` | Get per-tool API endpoint override config |
+| `PUT` | `/admin/tools/:toolName/config` | Set per-tool API endpoint override (endpoint, method, notes) |
 
 ---
 
@@ -463,7 +488,7 @@ Fastify's built-in logger is disabled (`logger: false`). All log lines use `proc
 1. Start `postgres:17-alpine` service container
 2. `npm ci`
 3. Install `golang-migrate` binary
-4. Run all 10 migrations against the test database
+4. Run all 12 migrations against the test database
 5. Create `app_user` / `app_login` roles and grant permissions
 6. **Run `assert-rls.sh`** — fails the build if any tenant-bearing table (including `tool_permissions` and `audit_log`) lacks an RLS policy
 7. `npm test` — runs the full vitest suite (19 test files covering DB, admin, MCP, tools, KB, and smoke tests)
@@ -514,11 +539,28 @@ A React single-page application served at `/dashboard/` provides a GUI for all a
   - **ERP Config** — 6 POSibolt fields, save + test connection
   - **Setup** — MCP client config snippets (Claude Desktop, Cursor, Generic) with copy buttons, Export PDF
   - **Audit Log** — paginated list with tool name and status filter dropdowns
-- **Knowledge Base** — YouTrack connection config, manual sync trigger, uploaded doc management (CRUD)
+- **Knowledge Base** — four sections:
+  - **YouTrack Configuration** — base URL, token, project ID, article filter query (YouTrack search syntax), sync interval, test connection button
+  - **Sync Status** — last sync time, article counts, errors, manual "Sync Now" button
+  - **API Knowledge** — browse all MCP tools grouped by category, view POSibolt API endpoints, inline edit to override endpoints per tool (e.g. swap `/productmaster/productlist` for `/productmaster/productdetailedlist`), custom badge on overridden tools
+  - **Uploaded Documents** — file upload (.docx via mammoth, .md, .txt, .json, .yaml, .html, .csv), auto-analysis for tool mapping (35 regex patterns with confidence scoring), manual tool mapping panel, edit/delete
 
 Every technical term across all pages has an info-icon tooltip explaining it in plain language. Admins can export tenant setup instructions as a PDF via browser print-to-PDF (`window.print()`).
 
 **Serving**: In production, `@fastify/static` serves `dashboard/dist/` with SPA fallback. In development, use `npm run dashboard:dev` (Vite dev server on port 5173 with proxy to backend).
+
+---
+
+## Per-Tool API Endpoint Configuration
+
+Admins can override the POSibolt API endpoint that each MCP tool calls. This is useful when a better API exists (e.g. `/productmaster/productdetailedlist` returns warehouse info that `/productmaster/productlist` does not).
+
+**How it works:**
+1. The `tool_registry` table has a `parameters JSONB` column. When an admin saves an endpoint override via the dashboard or `PUT /admin/tools/:toolName/config`, it writes `{ "endpoint": "/new/path", "method": "GET", "notes": "..." }` to this column.
+2. At runtime, every tool calls `getToolEndpoint('tool_name', '/default/endpoint')` before making its POSibolt API call. This checks the DB-backed config (cached for 60 seconds) and returns the override if set, or the hardcoded default.
+3. The dashboard's API Knowledge section shows all tools with their current endpoints, a "custom" badge on overridden tools, and an inline edit form to change the endpoint.
+
+**Cache invalidation:** Saving a config via the admin API calls `invalidateToolConfigCache()`, so changes take effect within 60 seconds (or immediately for the next request after save).
 
 ---
 

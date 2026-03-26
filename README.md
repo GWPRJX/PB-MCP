@@ -14,13 +14,14 @@ PB MCP exposes POSibolt ERP operations (inventory, orders, invoices, contacts) a
 
 | Category | Tools | Examples |
 |----------|-------|----------|
-| Inventory | 7 | `list_products`, `get_product`, `search_products`, `list_stock_levels`, `list_low_stock`, ... |
+| Inventory | 7 | `list_products`, `get_product`, `list_stock_levels`, `get_stock_level`, `list_low_stock`, ... |
 | Orders & Invoices | 6 | `list_orders`, `get_order`, `list_invoices`, `get_invoice`, `list_overdue_invoices`, ... |
 | CRM / Contacts | 5 | `list_contacts`, `search_contacts`, `get_contact`, `get_contact_orders`, ... |
 | Knowledge Base | 3 | `search_kb`, `get_kb_article`, `get_kb_sync_status` |
-| **Total** | **21** | |
+| Write Operations | 6 | `create_stock_entry`, `update_stock_entry`, `create_invoice`, `update_invoice`, `create_contact`, `update_contact` |
+| **Total** | **27** | |
 
-Tool access is configurable per-tenant and per-API-key.
+Tool access is configurable per-tenant and per-API-key. Each tool's POSibolt API endpoint can be overridden via the admin dashboard.
 
 ---
 
@@ -32,7 +33,7 @@ Tool access is configurable per-tenant and per-API-key.
 - **Auth (dashboard):** JWT HS256 via built-in Node.js crypto, 8-hour default expiry
 - **Transport:** MCP Streamable HTTP (not stdio) -- use the `url` field in MCP client config, not `command`/`args`
 - **Logging:** All output goes to stderr. stdout is never written to -- MCP uses stdout as its wire protocol and any writes would corrupt it
-- All 21 tool calls are audit-logged (fire-and-forget, non-blocking)
+- All 27 tool calls are audit-logged (fire-and-forget, non-blocking)
 
 See [HOW_IT_WORKS.md](HOW_IT_WORKS.md) for the full technical reference.
 
@@ -53,7 +54,7 @@ cp .env.example .env
 # Start PostgreSQL
 docker compose -f docker-compose.prod.yml up -d postgres
 
-# Run migrations (10 migrations: roles, tables, RLS policies)
+# Run migrations (12 migrations: roles, tables, RLS policies, tool registry)
 docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
 
 # Set app_login password (must match APP_LOGIN_PASSWORD in .env)
@@ -120,10 +121,11 @@ The dashboard at `/dashboard/` provides:
 
 - **Tenant management** -- create and manage company accounts
 - **API key management** -- issue keys with optional expiry, revoke, set per-key tool restrictions
-- **Tool permissions** -- enable or disable specific MCP tools per tenant
+- **Tool permissions** -- enable or disable specific MCP tools per tenant, with global tool registry
 - **ERP configuration** -- set POSibolt connection credentials per tenant
 - **Audit logs** -- paginated log of every tool call with status and duration
-- **Knowledge base management** -- upload and manage API documentation accessible to AI clients
+- **Knowledge base** -- YouTrack connection with test & article filtering, manual sync, file upload (.docx, .md, .txt, etc.) with auto doc-to-tool mapping
+- **API knowledge** -- browse all MCP tools by category, view and override POSibolt API endpoints per tool
 - **PDF export** -- print tenant setup instructions to PDF
 
 See [SETUP.md](SETUP.md#admin-operations-reference) for the full admin API reference.

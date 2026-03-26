@@ -49,14 +49,17 @@ PB MCP is an HTTP server that exposes POSibolt ERP data and YouTrack KB articles
 **src/db/schema.ts** - Drizzle ORM table definitions
 **src/mcp/server.ts** - Creates McpServer with filtered tools
 **src/mcp/auth.ts** - Validates API keys, sets context
-**src/admin/router.ts** - 18 admin API endpoints
+**src/admin/router.ts** - 25+ admin API endpoints (tenants, keys, tools, ERP, KB, tool config)
 **src/admin/tenant-service.ts** - Tenant/key CRUD
 **src/admin/auth-middleware.ts** - JWT auth (Node.js crypto)
 **src/admin/tool-permissions-service.ts** - Access control
+**src/admin/tool-registry-service.ts** - Global tool registry (seed, query, toggle)
 **src/admin/audit-service.ts** - Audit logging
+**src/admin/settings-service.ts** - Key-value store (KB sync, YouTrack config)
+**src/admin/seed-service.ts** - Demo tenant seeding
 **src/posibolt/client.ts** - POSibolt REST API client
-**src/tools/** - 27 tools across 5 files
-**src/kb/** - YouTrack sync scheduler
+**src/tools/** - 27 tools across 5 files + config.ts (per-tool endpoint resolver)
+**src/kb/** - YouTrack sync scheduler with article filtering
 
 ## 4. Database
 
@@ -71,7 +74,9 @@ All tenant tables: id UUID, tenant_id UUID FK, created_at, updated_at, RLS enabl
 **ERP:**
 - products, stock_levels, suppliers
 - contacts, orders, order_line_items, invoices
-- kb_articles (youtrack_id: P8-A-1 or DOC-uuid)
+- kb_articles (youtrack_id: P8-A-1 or DOC-uuid, mapped_tools TEXT[])
+- tool_registry (tool_name UNIQUE, category, source, is_active, parameters JSONB for endpoint overrides)
+- server_settings (key-value store for YouTrack config, sync interval, article filter)
 
 ## 5. API
 
@@ -89,9 +94,13 @@ All tenant tables: id UUID, tenant_id UUID FK, created_at, updated_at, RLS enabl
 - GET /admin/tenants/:id/audit-log
 - GET /admin/kb/settings, PUT /admin/kb/settings
 - GET /admin/kb/sync-status, POST /admin/kb/refresh
+- POST /admin/kb/test-connection
 - POST /admin/kb/upload
 - GET /admin/kb/docs, GET /admin/kb/docs/:id
 - PUT /admin/kb/docs/:id, DELETE /admin/kb/docs/:id
+- POST /admin/kb/docs/:id/analyze, PUT /admin/kb/docs/:id/mappings
+- PUT /admin/tools/:toolName/toggle
+- GET /admin/tools/:toolName/config, PUT /admin/tools/:toolName/config
 
 **MCP Endpoints:**
 - POST /mcp (JSON-RPC)
@@ -102,13 +111,13 @@ All tenant tables: id UUID, tenant_id UUID FK, created_at, updated_at, RLS enabl
 
 **Inventory (7):** list_products, get_product, list_stock_levels, get_stock_level, list_low_stock, list_suppliers, get_supplier
 
-**Orders (6):** list_orders, get_order, list_invoices, get_invoice, list_overdue_invoices, get_overdue_summary
+**Orders (6):** list_orders, get_order, list_invoices, get_invoice, list_overdue_invoices, get_payment_summary
 
 **CRM (5):** list_contacts, search_contacts, get_contact, get_contact_orders, get_contact_invoices
 
 **KB (3):** search_kb, get_kb_article, get_kb_sync_status
 
-**Write (6):** transfer_stock, create_order, create_invoice, mark_invoice_paid, update_order_status, create_contact
+**Write (6):** create_stock_entry, update_stock_entry, create_invoice, update_invoice, create_contact, update_contact
 
 ## 7. Dashboard
 
@@ -121,6 +130,8 @@ Pages:
 - Tenant List
 - Create Tenant (3-step)
 - Tenant Detail (5 tabs: Keys, Tools, ERP, Setup, Audit)
+- Knowledge Base (YouTrack config + test, sync status, API knowledge with endpoint editing, doc upload with .docx + tool mapping)
+- Server Setup (tool registry with global enable/disable)
 
 ## 8. Configuration
 
