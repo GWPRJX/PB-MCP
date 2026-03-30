@@ -86,13 +86,26 @@ docker compose -f docker-compose.prod.yml exec postgres \
 
 ---
 
-## Step 5 -- Build and start the application
+## Step 5 -- Build the dashboard UI
+
+The dashboard must be built on the host before starting the application. The server serves static files from `dashboard/dist/`, and in dev mode that folder is volume-mounted into the container.
+
+```bash
+# Build the dashboard UI (required — the server serves static files from dashboard/dist/)
+cd dashboard && npm install --legacy-peer-deps && npm run build && cd ..
+```
+
+> **Development mode note:** `docker-compose.yml` (the dev compose file) volume-mounts `src/` for hot reload. It also volume-mounts `dashboard/dist/` so the container serves your locally-built dashboard assets. Because of this mount, you must build the dashboard on the host (above) before starting the container — changes to the source inside the container are not used. The current `docker-compose.yml` already has the `dashboard/dist/` mount configured.
+
+---
+
+## Step 6 -- Build and start the application
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d app
 ```
 
-The first run builds the Docker image (installs dependencies, builds the dashboard). This takes 1-2 minutes.
+The first run builds the Docker image (installs dependencies). This takes 1-2 minutes.
 
 Check logs:
 
@@ -112,7 +125,7 @@ Expected output (on stderr):
 
 ---
 
-## Step 6 -- Verify the deployment
+## Step 7 -- Verify the deployment
 
 Open the admin dashboard:
 
@@ -135,7 +148,7 @@ Save the returned `apiKey` -- it is shown only once.
 
 ---
 
-## Step 7 -- Connect an AI client
+## Step 8 -- Connect an AI client
 
 Add to your Claude Desktop `claude_desktop_config.json`:
 
@@ -153,6 +166,35 @@ Add to your Claude Desktop `claude_desktop_config.json`:
 ```
 
 Replace `YOUR_SERVER_IP` with your server's IP or hostname.
+
+---
+
+## Networking & Firewall
+
+The application listens on port 3000. On a server with a firewall you must explicitly allow traffic to reach it.
+
+**UFW (Ubuntu/Debian):**
+
+```bash
+sudo ufw allow 3000/tcp
+```
+
+**Alternative -- reverse proxy on port 80/443:**
+
+Use Caddy or nginx to proxy requests from port 80 (or 443 with TLS) to `localhost:3000`. This avoids exposing port 3000 directly and lets you add HTTPS.
+
+**Docker-specific: DOCKER-USER iptables chain**
+
+When the kernel's `FORWARD` chain default policy is `DROP` (common on hardened hosts), Docker port mappings are silently blocked unless the `DOCKER-USER` chain has a `RETURN` rule that lets traffic pass.
+
+```bash
+# Check if DOCKER-USER chain is empty (causes all Docker port mappings to be blocked)
+sudo iptables -L DOCKER-USER -n
+# If empty, add RETURN rule:
+sudo iptables -A DOCKER-USER -j RETURN
+```
+
+This rule persists until reboot. To make it permanent use `iptables-persistent` or add it to your server's startup scripts.
 
 ---
 
@@ -190,7 +232,22 @@ The password in `DATABASE_URL` (set via `APP_LOGIN_PASSWORD` in `.env`) does not
 The grants from Step 4 are missing. Re-run the GRANT commands.
 
 ### Dashboard returns 404
-The Docker image may not have built the dashboard. Rebuild: `docker compose -f docker-compose.prod.yml build --no-cache app`
+The dashboard has not been built. Run the build step from Step 5:
+```bash
+cd dashboard && npm install --legacy-peer-deps && npm run build && cd ..
+```
+Then restart the container: `docker compose -f docker-compose.prod.yml up -d app`
+
+### Can't access from external IP
+Two common causes:
+
+1. **UFW firewall** -- port 3000 is not open. Run: `sudo ufw allow 3000/tcp`
+2. **DOCKER-USER iptables chain is empty** -- all Docker port mappings are blocked by the kernel `FORWARD` DROP policy. Check and fix:
+   ```bash
+   sudo iptables -L DOCKER-USER -n
+   # If empty:
+   sudo iptables -A DOCKER-USER -j RETURN
+   ```
 
 ### Container keeps restarting
 Check logs: `docker compose -f docker-compose.prod.yml logs app`. Common cause: missing required env vars (`DATABASE_URL`, `ADMIN_SECRET`, `JWT_SECRET`).

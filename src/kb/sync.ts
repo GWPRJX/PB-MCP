@@ -62,6 +62,12 @@ export async function syncKbArticles(): Promise<SyncResult> {
       throw new Error(`[kb/sync] YouTrack API error ${res.status}: ${text}`);
     }
 
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) {
+      const text = await res.text();
+      throw new Error(`[kb/sync] YouTrack returned non-JSON response (${contentType}). Check that the base URL is correct (should be like https://your-instance.youtrack.cloud without trailing slash). Body: ${text.slice(0, 200)}`);
+    }
+
     const page: YouTrackArticle[] = await res.json() as YouTrackArticle[];
     articles.push(...page);
 

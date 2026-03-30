@@ -21,7 +21,9 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ./src:/app/src
+      - ./dashboard/dist:/app/dashboard/dist
       - /app/node_modules
+    env_file: .env
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgres://app_login:changeme@postgres:5432/pb_mcp

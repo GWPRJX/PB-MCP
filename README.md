@@ -39,6 +39,14 @@ See [HOW_IT_WORKS.md](HOW_IT_WORKS.md) for the full technical reference.
 
 ---
 
+## Requirements
+
+- **Node.js 22+** (hard requirement -- Node.js 18/20 are not supported; the server uses native `crypto` APIs and ESM features only available in Node.js 22 LTS)
+- Docker Engine 24+ and Docker Compose v2+ (for the Docker path)
+- PostgreSQL 17 (managed automatically by Docker; required if running bare-metal)
+
+---
+
 ## Quickstart
 
 The fastest path is Docker. You need Docker Engine 24+ and Docker Compose v2+.
@@ -67,6 +75,9 @@ docker compose -f docker-compose.prod.yml exec postgres \
     GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO app_user;
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;"
 
+# Build the dashboard UI
+cd dashboard && npm install --legacy-peer-deps && npm run build && cd ..
+
 # Build and start the application
 docker compose -f docker-compose.prod.yml up -d app
 ```
@@ -74,6 +85,8 @@ docker compose -f docker-compose.prod.yml up -d app
 Open `http://localhost:3000/dashboard/` to create your first tenant.
 
 > **Note:** The server logs nothing to stdout. All output goes to stderr -- this is required for MCP Streamable HTTP transport.
+
+> **Accessing from a public IP:** Port 3000 must be open in your firewall (`sudo ufw allow 3000/tcp` on Ubuntu), or use a reverse proxy (Caddy, nginx) on port 80/443. If using Docker, ensure the `DOCKER-USER` iptables chain has a `RETURN` rule: `sudo iptables -A DOCKER-USER -j RETURN`.
 
 See the [Docker guide](docs/docker.md) for the full annotated walkthrough.
 
